@@ -1,0 +1,100 @@
+<html lang='es'>
+  <head>
+    <meta charset='UTF-8' />
+    <title>Cotización de Vehículo</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        width: 90%;
+        max-width: 600px;
+        margin: 20px auto;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .header {
+        background-color: #004a99;
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+      .header h1 {
+        margin: 0;
+      }
+      .content {
+        padding: 30px;
+      }
+      .content p {
+        line-height: 1.6;
+      }
+      .details {
+        background-color: #f9f9f9;
+        border-radius: 5px;
+        padding: 20px;
+      }
+      .details h3 {
+        margin-top: 0;
+        color: #004a99;
+      }
+      .details ul {
+        list-style: none;
+        padding: 0;
+      }
+      .details li {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #eee;
+      }
+      .details li span {
+        font-weight: bold;
+      }
+      .footer {
+        padding: 20px;
+        text-align: center;
+        font-size: 0.9em;
+        color: #888;
+        background-color: #f4f4f4;
+      }
+    </style>
+  </head>
+  <body>
+    <div class='container'>
+      <div class='header'>
+        <h1>Resumen de tu Cotización</h1>
+      </div>
+      <div class='content'>
+        <p>Hola {{nombreCliente}},</p>
+        <p>Gracias por tu interés en SmartAssistant CRM. Aquí están los detalles
+          de la cotización que generaste para el
+          <strong>{{marcaCoche}} {{modeloCoche}} {{anoCoche}}</strong>.</p>
+
+        <div class='details'>
+          <h3>Detalles del Financiamiento</h3>
+          <ul>
+            <li>Precio del Vehículo: <span>{{precio}}</span></li>
+            <li>Enganche: <span>{{enganche}}</span></li>
+            <li>Monto a Financiar: <span>{{financiado}}</span></li>
+            <li>Plazo: <span>{{plazo}} meses</span></li>
+            <li>Tasa de Interés Anual: <span>{{tasaInteres}}%</span></li>
+            <li style='font-size: 1.2em; background-color: #eee;'>Pago Mensual
+              Estimado:
+              <span>{{pagoMensual}}</span></li>
+            <li>Total Pagado (al final del plazo):
+              <span>{{totalPagado}}</span></li>
+          </ul>
+        </div>
+
+        <p style='margin-top: 20px;'>Un vendedor se pondrá en contacto contigo
+          pronto para discutir los siguientes pasos.</p>
+      </div>
+      <div class='footer'>
+        <p>2025 SmartAssistant CRM. Todos los derechos reservados.</p>
+      </div>
+    </div>
+  </body>
+</html>
