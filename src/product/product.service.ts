@@ -37,18 +37,7 @@ export class ProductService {
     return product;
   }
 
-  // --- ✅ NUEVO MÉTODO AÑADIDO ---
-  async findByVin(vin: string): Promise<Product> {
-    // Buscamos el producto por su VIN (asegurándonos de que esté en mayúsculas)
-    const product = await this.productModel.findOne({ vin: vin.toUpperCase() }).exec();
-    if (!product) {
-      throw new NotFoundException(`Coche con VIN "${vin}" no encontrado.`);
-    }
-    return product;
-  }
-
   async update(id: string, dto: UpdateProductDto): Promise<Product> {
-    // Si se actualiza el VIN, lo convertimos a mayúsculas
     const updateData = { ...dto };
     if (dto.vin) {
       updateData.vin = dto.vin.toUpperCase();
@@ -106,5 +95,17 @@ export class ProductService {
     const imageUrl = `https://${this.s3BucketName}.s3.${'us-east-2'}.amazonaws.com/${fileKey}`;
 
     return this.update(productId, { imageUrl: imageUrl });
+  }
+
+  async findByVin(vin: string): Promise<Product> {
+    const product = await this.productModel.findOne({ 
+      vin: vin.toUpperCase() 
+    }).exec();
+    
+    if (!product) {
+      throw new NotFoundException(`Coche con VIN "${vin}" no encontrado.`);
+    }
+    
+    return product;
   }
 }

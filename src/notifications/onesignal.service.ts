@@ -101,4 +101,34 @@ export class OneSignalService {
       throw error;
     }
   }
+
+  async enviarEmailPersonalizado(email: string, subject: string, body: string): Promise<void> {
+    const headers = {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Authorization': `Basic ${this.ONESIGNAL_API_KEY}`,
+    };
+
+    const payload = {
+      app_id: this.ONESIGNAL_APP_ID,
+      include_email_tokens: [email],
+      email_subject: subject,
+      email_body: body,
+      email_from_name: 'SmartAssistant CRM',
+    };
+
+    try {
+      await this.httpService.axiosRef.post(
+        'https://onesignal.com/api/v1/notifications',
+        payload,
+        { headers },
+      );
+      this.logger.log(`Email personalizado enviado a: ${email}`);
+    } catch (error) {
+      this.logger.error(`Error enviando email personalizado a ${email}:`, error.message);
+      if (error.response) {
+        this.logger.error('Respuesta de OneSignal:', error.response.data);
+      }
+      throw error;
+    }
+  }
 }

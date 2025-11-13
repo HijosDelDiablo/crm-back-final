@@ -61,26 +61,8 @@ export class UserService {
     return updatedUser;
   }
 
-  async findAllClients(): Promise<UserDocument[]> {
-    return this.userModel.find({ rol: Rol.CLIENTE }).select('-password').exec();
-  }
-
   async findAllVendedores(): Promise<UserDocument[]> {
     return this.userModel.find({ rol: Rol.VENDEDOR }).select('-password').exec();
-  }
-
-  async updatePlayerId(userId: string, playerId: string): Promise<UserDocument> {
-    const updatedUser = await this.userModel.findByIdAndUpdate(
-      userId,
-      { oneSignalPlayerId: playerId },
-      { new: true },
-    );
-
-    if (!updatedUser) {
-      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
-    }
-
-    return updatedUser;
   }
 
   async getVendedorPlayerIds(): Promise<string[]> {
@@ -92,5 +74,26 @@ export class UserService {
     return vendedores
       .map(v => v.oneSignalPlayerId)
       .filter((playerId): playerId is string => playerId !== null && playerId !== undefined);
+  }
+
+    async updatePlayerId(userId: string, playerId: string): Promise<UserDocument> {
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      userId,
+      { oneSignalPlayerId: playerId },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
+    }
+
+    return updatedUser;
+  }
+
+  async findAllClients(): Promise<UserDocument[]> {
+    return this.userModel.find({ rol: Rol.CLIENTE })
+      .select('-password -twoFactorSecret -twoFactorTempSecret')
+      .sort({ nombre: 1 })
+      .exec();
   }
 }

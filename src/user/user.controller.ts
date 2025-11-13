@@ -39,7 +39,7 @@ export class UserController {
   }
 
   @Get('clients')
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.VENDEDOR)
   findAllClients() {
     return this.userService.findAllClients();
   }

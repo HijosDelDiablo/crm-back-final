@@ -6,9 +6,10 @@ import {
   Logger,
   NotFoundException,
   ForbiddenException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument, ValidatedUser } from '../user/schemas/user.schema';
 import { UserService } from '../user/user.service';
 import { RegisterAuthDto } from './dto/register-auth.dto';
@@ -152,7 +153,7 @@ export class AuthService {
   }
 
   async assignRole(targetUserId: string, newRole: Rol, performingAdmin: ValidatedUser) {
-    const userToUpdate: any = await this.userService.findById(targetUserId);
+    const userToUpdate = await this.userService.findById(targetUserId);
     if (!userToUpdate) {
       throw new NotFoundException('Usuario objetivo no encontrado.');
     }
@@ -161,7 +162,7 @@ export class AuthService {
       throw new ForbiddenException('No se puede modificar el rol de un Administrador.');
     }
     
-    if (userToUpdate._id.toString() === performingAdmin._id.toString()) {
+    if (userToUpdate._id && userToUpdate._id.toString() === performingAdmin._id.toString()) {
        throw new ForbiddenException('Un administrador no puede cambiar su propio rol.');
     }
 
@@ -173,7 +174,7 @@ export class AuthService {
       throw new ForbiddenException('Un administrador no puede eliminarse a sí mismo.');
     }
 
-    const userToDelete: any = await this.userService.findById(targetUserId);
+    const userToDelete = await this.userService.findById(targetUserId);
     if (!userToDelete) {
       throw new NotFoundException('Usuario objetivo no encontrado.');
     }
@@ -218,7 +219,15 @@ export class AuthService {
     if (!passwordMatches) {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
-    return user.toObject();
+    
+    const userObject = user.toObject();
+    return {
+      _id: userObject._id?.toString() || userObject._id,
+      email: userObject.email,
+      nombre: userObject.nombre,
+      rol: userObject.rol,
+      twoFactorEnabled: userObject.twoFactorEnabled,
+    } as ValidatedUser;
   }
 
   async validateGoogleUser(profile: any): Promise<UserDocument | null> {
@@ -229,7 +238,8 @@ export class AuthService {
 
     user = await this.userService.findByEmail(profile.email);
     if (user) {
-      return this.userService.update(user.id, { googleId: profile.googleId });
+      const updatedUser = await this.userService.update(user.id, { googleId: profile.googleId });
+      return updatedUser as UserDocument;
     }
     
     return this.userService.create({
@@ -237,5 +247,181 @@ export class AuthService {
       nombre: profile.nombre,
       googleId: profile.googleId,
     });
+  }
+
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      return { message: 'Si el email existe, se enviarán instrucciones de recuperación.' };
+    }
+
+    const userId = user._id ? user._id.toString() : user.id;
+    const resetToken = this.jwtService.sign(
+      { sub: userId, type: 'password_reset' },
+      { expiresIn: '1h' }
+    );
+
+    try {
+      await this._enviarEmailRecuperacion(user.email, resetToken, user.nombre);
+      this.logger.log(`Email de recuperación enviado a: ${user.email}`);
+      
+      return { 
+        message: 'Si el email existe, se enviarán instrucciones de recuperación.' 
+      };
+    } catch (error) {
+      this.logger.error('Error enviando email de recuperación:', error);
+      return { 
+        message: 'Si el email existe, se enviarán instrucciones de recuperación.' 
+      };
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    try {
+      const payload = this.jwtService.verify(token);
+      
+      if (payload.type !== 'password_reset') {
+        throw new UnauthorizedException('Token inválido.');
+      }
+
+      const hashedPassword = await hash(newPassword, 10);
+      await this.userService.update(payload.sub, { password: hashedPassword });
+
+      const user = await this.userService.findById(payload.sub);
+      if (user) {
+        await this._enviarEmailConfirmacionCambioPassword(user.email, user.nombre);
+      }
+
+      return { message: 'Contraseña restablecida exitosamente.' };
+    } catch (error) {
+      this.logger.error('Error restableciendo contraseña:', error);
+      throw new UnauthorizedException('Token inválido o expirado.');
+    }
+  }
+
+  private async _enviarEmailRecuperacion(
+    email: string, 
+    resetToken: string, 
+    nombre: string
+  ): Promise<void> {
+    try {
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+      const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+      const emailSubject = 'Recuperación de Contraseña - SmartAssistant CRM';
+      const emailBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+                .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; }
+                .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+                .warning { background: #fef3c7; border: 1px solid #f59e0b; padding: 12px; border-radius: 6px; margin: 16px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>SmartAssistant CRM</h1>
+                    <p>Recuperación de Contraseña</p>
+                </div>
+                <div class="content">
+                    <h2>Hola ${nombre},</h2>
+                    <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
+                    <p>Para continuar con el proceso, haz clic en el siguiente botón:</p>
+                    
+                    <p style="text-align: center; margin: 30px 0;">
+                        <a href="${resetLink}" class="button">Restablecer Contraseña</a>
+                    </p>
+                    
+                    <div class="warning">
+                        <strong>⚠️ Importante:</strong>
+                        <p>Este enlace expirará en 1 hora. Si no solicitaste este cambio, puedes ignorar este email.</p>
+                    </div>
+                    
+                    <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+                    <p style="word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px;">
+                        ${resetLink}
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+                    <p>© 2024 SmartAssistant CRM. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+      `;
+
+      await this.oneSignalService.enviarEmailPersonalizado(
+        email,
+        emailSubject,
+        emailBody
+      );
+
+    } catch (error) {
+      this.logger.error('Error en _enviarEmailRecuperacion:', error);
+      throw new InternalServerErrorException('No se pudo enviar el email de recuperación.');
+    }
+  }
+
+  private async _enviarEmailConfirmacionCambioPassword(
+    email: string, 
+    nombre: string
+  ): Promise<void> {
+    try {
+      const emailSubject = 'Contraseña Actualizada - SmartAssistant CRM';
+      const emailBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+                .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+                .security-note { background: #f3f4f6; padding: 12px; border-radius: 6px; margin: 16px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>SmartAssistant CRM</h1>
+                    <p>Contraseña Actualizada Exitosamente</p>
+                </div>
+                <div class="content">
+                    <h2>Hola ${nombre},</h2>
+                    <p>Tu contraseña ha sido actualizada exitosamente.</p>
+                    
+                    <div class="security-note">
+                        <strong>🔒 Nota de Seguridad:</strong>
+                        <p>Si no realizaste este cambio, por favor contacta inmediatamente al administrador del sistema.</p>
+                    </div>
+                    
+                    <p>Fecha y hora del cambio: ${new Date().toLocaleString('es-MX')}</p>
+                </div>
+                <div class="footer">
+                    <p>Este es un email automático de seguridad.</p>
+                    <p>© 2024 SmartAssistant CRM. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+      `;
+
+      await this.oneSignalService.enviarEmailPersonalizado(
+        email,
+        emailSubject,
+        emailBody
+      );
+
+    } catch (error) {
+      this.logger.error('Error en _enviarEmailConfirmacionCambioPassword:', error);
+    }
   }
 }

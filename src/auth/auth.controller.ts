@@ -1,16 +1,16 @@
-import {
-  Controller,
-  Post,
-  Body,
-  UseGuards,
-  Get,
-  Req,
-  Res,
-  Patch,
-  Param,
-  Delete,
-  HttpCode,
-  HttpStatus,
+import { 
+  Controller, 
+  Post, 
+  Body, 
+  UseGuards, 
+  Get, 
+  Req, 
+  Res, 
+  Patch, 
+  Param, 
+  Delete, 
+  HttpCode, 
+  HttpStatus 
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterAuthDto } from './dto/register-auth.dto';
@@ -25,6 +25,7 @@ import { Rol } from './enums/rol.enum';
 import { RolesGuard } from './guards/roles.guard';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto'; // Importar los DTOs
 
 @Controller('auth')
 export class AuthController {
@@ -81,6 +82,16 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   turnOff2FA(@GetUser() user: ValidatedUser) {
     return this.authService.desactivar2FA(user._id);
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(dto.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   @Patch('admin/assign-role/:id')

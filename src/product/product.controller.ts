@@ -87,4 +87,11 @@ export class ProductController {
   remove(@Param('id') id: string) {
     return this.productService.delete(id);
   }
+
+
+  @Get('find-by-vin/:vin')
+  @UseGuards(JwtAuthGuard)
+  async findByVin(@Param('vin') vin: string) {
+    return this.productService.findByVin(vin);
+  }
 }
