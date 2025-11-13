@@ -4,7 +4,7 @@ import { Document } from 'mongoose';
 export type ProductDocument = Product & Document;
 
 @Schema({ timestamps: true })
-export class Product { 
+export class Product {
   @Prop({ required: true, trim: true })
   marca: string;
 
@@ -19,6 +19,9 @@ export class Product {
 
   @Prop({ required: true, default: 0 })
   kilometraje: number;
+  
+  @Prop({ required: true, unique: true, trim: true, uppercase: true, maxlength: 17 })
+  vin: string;
 
   @Prop({ required: true, trim: true })
   descripcion: string;

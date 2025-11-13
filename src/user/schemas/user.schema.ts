@@ -34,6 +34,9 @@ export class User extends Document {
 
   @Prop({ type: Date })
   twoFactorTempExpiry?: Date;
+
+  @Prop({ required: false })
+  oneSignalPlayerId?: string;
 }
 
 export type UserDocument = User & Document;

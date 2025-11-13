@@ -6,7 +6,9 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Product, ProductDocument } from '../product/schemas/product.schema';
-import { UserDocument, ValidatedUser } from '../user/schemas/user.schema';
+import { User, UserDocument } from '../user/schemas/user.schema';
+import { ValidatedUser } from '../user/schemas/user.schema';
+import { UserService } from '../user/user.service';
 import { EmailService } from '../email/email.service';
 import { Cotizacion, CotizacionDocument } from './schemas/cotizacion.schema';
 
@@ -19,6 +21,7 @@ export class CotizacionService {
     @InjectModel(Cotizacion.name)
     private cotizacionModel: Model<CotizacionDocument>,
     private readonly emailService: EmailService,
+    private readonly userService: UserService,
   ) {}
 
   async generarCotizacion(
@@ -65,7 +68,7 @@ export class CotizacionService {
 
     const cotizacionGuardada = await nuevaCotizacion.save();
     
-    const clienteDoc = await this.productModel.findById(cliente._id);
+    const clienteDoc = await this.userService.findById(cliente._id.toString());
     if (clienteDoc) {
         await this.emailService.enviarCorreoCotizacion(
           clienteDoc as any,
@@ -75,6 +78,28 @@ export class CotizacionService {
     }
 
     return cotizacionGuardada;
+  }
+
+  async vendedorGenerarCotizacion(
+    dto: {
+      cocheId: string,
+      clienteId: string,
+      enganche: number,
+      plazoMeses: number
+    },
+  ): Promise<CotizacionDocument> {
+    
+    const cliente = await this.userService.findById(dto.clienteId);
+    if (!cliente) {
+      throw new NotFoundException('El cliente seleccionado no existe.');
+    }
+
+    return this.generarCotizacion(
+      cliente as ValidatedUser,
+      dto.cocheId,
+      dto.enganche,
+      dto.plazoMeses,
+    );
   }
   
   async getCotizacionesPendientes(): Promise<CotizacionDocument[]> {

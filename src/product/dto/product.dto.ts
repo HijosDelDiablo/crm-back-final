@@ -8,6 +8,7 @@ import {
   Min,
   Max,
   IsEnum,
+  Length,
 } from 'class-validator';
 
 export class CreateProductDto {
@@ -60,6 +61,11 @@ export class CreateProductDto {
   @IsNumber()
   @IsOptional()
   numPuertas?: number;
+
+  @IsString()
+  @IsNotEmpty()
+  @Length(17, 17, { message: 'El VIN debe tener exactamente 17 caracteres' })
+  vin: string;
 }
 
 export class UpdateProductDto extends PartialType(CreateProductDto) {

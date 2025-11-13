@@ -14,6 +14,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { CotizacionModule } from './cotizacion/cotizacion.module';
 import { EmailModule } from './email/email.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     CotizacionModule,
     EmailModule,
     NotificationsModule,
+    TasksModule,
   ],
   controllers: [],
   providers: [],
