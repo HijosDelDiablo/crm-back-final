@@ -98,8 +98,10 @@ export class ProductService {
   }
 
   async findByVin(vin: string): Promise<Product> {
+    const normalizedVin = vin.trim().toUpperCase();
+
     const product = await this.productModel.findOne({ 
-      vin: vin.toUpperCase() 
+      vin: normalizedVin 
     }).exec();
     
     if (!product) {
