@@ -15,6 +15,7 @@ Construir la imagen
 ```bash
 docker build -t nodeserver:v2 .
 
+
 ## Ejemplos para ejecutar el contenedor
 #### Ejecutar exponiendo el puerto 3000 del contenedor en el puerto 3000 del host:
 docker run -p 3000:3000 --env-file .env --name crm_back nodeserver:v2
