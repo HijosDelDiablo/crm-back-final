@@ -15,6 +15,8 @@ import { CotizacionModule } from './cotizacion/cotizacion.module';
 import { EmailModule } from './email/email.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TasksModule } from './tasks/tasks.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -80,7 +82,7 @@ import { TasksModule } from './tasks/tasks.module';
     NotificationsModule,
     TasksModule,
   ],
-  controllers: [],
-  providers: [],
+  controllers: [ AppController],
+  providers: [ AppService],
 })
 export class AppModule {}
