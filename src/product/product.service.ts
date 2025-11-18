@@ -16,7 +16,6 @@ export class ProductService {
   private readonly s3BucketName = 'hijosdeldiablo-smartassistant-uploads'; 
 
   async create(dto: CreateProductDto): Promise<Product> {
-    // Aseguramos que el VIN esté en mayúsculas
     const productData = {
       ...dto,
       vin: dto.vin.toUpperCase()
