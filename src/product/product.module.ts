@@ -10,6 +10,6 @@ import { Product, ProductSchema } from './schemas/product.schema';
   ],
   controllers: [ProductController],
   providers: [ProductService],
-  exports: [ProductService],
+  exports: [MongooseModule, ProductService],
 })
 export class ProductModule {}
