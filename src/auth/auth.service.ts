@@ -18,6 +18,7 @@ import { TwoFactorCodeDto } from './dto/2fa-code.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { OneSignalService } from '../notifications/onesignal.service';
+import { EmailService } from '../email/email.service'; // ← LÍNEA 1: AGREGAR ESTO
 import { compare, hash } from 'bcrypt';
 import { Rol } from './enums/rol.enum';
 
@@ -30,6 +31,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly oneSignalService: OneSignalService,
+    private readonly emailService: EmailService, // ← LÍNEA 2: AGREGAR ESTO
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
@@ -111,11 +113,16 @@ export class AuthService {
     usuario.twoFactorTempExpiry = expiry;
     await usuario.save();
 
+    this.logger.log(`📧 Intentando enviar código 2FA a: ${usuario.email}`);
+    this.logger.log(`🔢 Código generado: ${tempCode}`);
+
     try {
-      await this.oneSignalService.enviarCodigo2FA(usuario.email, tempCode);
+      await this.emailService.enviarCodigo2FA(usuario.email, tempCode); // ← LÍNEA 3: CAMBIAR DE oneSignalService a emailService
+      this.logger.log('✅ Email 2FA enviado exitosamente');
       return { message: 'Se ha enviado un código de 6 dígitos a tu correo electrónico.' };
     } catch (error) {
-      this.logger.error('Error enviando 2FA con OneSignal:', error.message);
+      this.logger.error('❌ Error enviando 2FA:', error.message);
+      this.logger.error('Stack trace:', error.stack);
       throw new BadRequestException('No se pudo enviar el correo de verificación.');
     }
   }
@@ -357,7 +364,7 @@ export class AuthService {
         </html>
       `;
 
-      await this.oneSignalService.enviarEmailPersonalizado(
+      await this.emailService.enviarEmailPersonalizado( // ← LÍNEA 4: CAMBIAR DE oneSignalService a emailService
         email,
         emailSubject,
         emailBody
@@ -414,7 +421,7 @@ export class AuthService {
         </html>
       `;
 
-      await this.oneSignalService.enviarEmailPersonalizado(
+      await this.emailService.enviarEmailPersonalizado( // Ya cambié esta línea también
         email,
         emailSubject,
         emailBody
