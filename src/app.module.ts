@@ -6,7 +6,6 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { HttpModule } from '@nestjs/axios';
 import { join } from 'path';
-
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { ProductModule } from './product/product.module';
@@ -15,6 +14,9 @@ import { CotizacionModule } from './cotizacion/cotizacion.module';
 import { EmailModule } from './email/email.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TasksModule } from './tasks/tasks.module';
+import { CompraModule } from './compra/compra.module';
+import { ProveedoresModule } from './proveedores/proveedores.module';
+import { GastosModule } from './gastos/gastos.module';
 
 @Module({
   imports: [
@@ -24,13 +26,16 @@ import { TasksModule } from './tasks/tasks.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
-        
         const uri = configService.get<string>('DATABASE_URL');
 
-        console.log(`[Mongoose] Intentando conectar a: ${uri ? uri.substring(0, 20) + '...' : 'URI no definida'}`);
+        console.log(`[Mongoose] Intentando conectar a: ${
+          uri ? uri.substring(0, 20) + '...' : 'URI no definida'
+        }`);
+
         if (!uri) {
           console.error("[Mongoose] ERROR: La variable de entorno DATABASE_URL no está definida.");
         }
+
         return { uri };
       },
     }),
@@ -54,13 +59,11 @@ import { TasksModule } from './tasks/tasks.module';
         template: {
           dir: join(process.cwd(), 'src', 'templates'),
           adapter: new HandlebarsAdapter(),
-          options: {
-            strict: true,
-          },
+          options: { strict: true },
         },
       }),
     }),
-    
+
     HttpModule.register({
       timeout: 5000,
       maxRedirects: 5,
@@ -79,6 +82,9 @@ import { TasksModule } from './tasks/tasks.module';
     EmailModule,
     NotificationsModule,
     TasksModule,
+    CompraModule,       
+    ProveedoresModule,   
+    GastosModule,       
   ],
   controllers: [],
   providers: [],
