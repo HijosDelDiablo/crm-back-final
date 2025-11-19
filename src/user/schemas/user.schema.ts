@@ -1,10 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 import { Rol } from '../../auth/enums/rol.enum';
 
 @Schema({ timestamps: true })
 export class User extends Document {
-
   @Prop({ unique: true, required: true, trim: true })
   email: string;
 
@@ -37,6 +36,19 @@ export class User extends Document {
 
   @Prop({ required: false })
   oneSignalPlayerId?: string;
+
+  // --- NUEVOS CAMPOS AÑADIDOS ---
+  @Prop({ default: null })
+  fotoPerfil?: string;
+
+  @Prop({ default: null })
+  direccion?: string;
+
+  @Prop({ default: null })
+  fechaNacimiento?: Date;
+
+  @Prop({ default: true })
+  activo: boolean;
 }
 
 export type UserDocument = User & Document;
@@ -48,4 +60,6 @@ export interface ValidatedUser {
   rol: Rol;
   nombre: string;
   twoFactorEnabled?: boolean;
+
+  fotoPerfil?: string;
 }
