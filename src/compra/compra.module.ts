@@ -5,11 +5,11 @@ import { CompraController } from './compra.controller';
 import { Compra, CompraSchema } from './schemas/compra.schema';
 import { Cotizacion, CotizacionSchema } from '../cotizacion/schemas/cotizacion.schema';
 import { User, UserSchema } from '../user/schemas/user.schema';
-import { Product, ProductSchema } from 'src/product/schemas/product.schema';
+import { Product, ProductSchema } from './../product/schemas/product.schema';
 import { SimulacionService } from './services/simulacion.service';
 import { EmailModule } from '../email/email.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { ProductModule } from 'src/product/product.module';
+import { ProductModule } from './../product/product.module';
 
 @Module({
   imports: [
