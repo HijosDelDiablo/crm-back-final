@@ -18,7 +18,6 @@ import { TwoFactorCodeDto } from './dto/2fa-code.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { OneSignalService } from '../notifications/onesignal.service';
-import { EmailService } from '../email/email.service';
 import { compare, hash } from 'bcrypt';
 import { Rol } from './enums/rol.enum';
 
@@ -31,7 +30,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly oneSignalService: OneSignalService,
-    private readonly emailService: EmailService,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
@@ -156,16 +154,16 @@ export class AuthService {
     this.logger.log(`Código guardado en base de datos`);
 
     try {
-      this.logger.log(`Enviando email a: ${usuario.email}`);
-      await this.emailService.enviarCodigo2FA(usuario.email, tempCode);
-      this.logger.log(`Email 2FA enviado exitosamente a: ${usuario.email}`);
+      this.logger.log(`Enviando email via OneSignal a: ${usuario.email}`);
+      await this.oneSignalService.enviarCodigo2FA(usuario.email, tempCode);
+      this.logger.log(`Email 2FA enviado exitosamente via OneSignal a: ${usuario.email}`);
       
       return { 
         message: 'Se ha enviado un código de 6 dígitos a tu correo electrónico.',
         expiresAt: expiry.toISOString() 
       };
     } catch (error) {
-      this.logger.error(`Error enviando email a ${usuario.email}:`, error.message);
+      this.logger.error(`Error enviando email via OneSignal a ${usuario.email}:`, error.message);
       this.logger.error('Stack trace:', error.stack);
       
       usuario.twoFactorTempSecret = undefined;
@@ -342,13 +340,13 @@ export class AuthService {
 
     try {
       await this._enviarEmailRecuperacion(user.email, resetToken, user.nombre);
-      this.logger.log(`Email de recuperación enviado a: ${user.email}`);
+      this.logger.log(`Email de recuperación enviado via OneSignal a: ${user.email}`);
       
       return { 
         message: 'Si el email existe, se enviarán instrucciones de recuperación.' 
       };
     } catch (error) {
-      this.logger.error('Error enviando email de recuperación:', error);
+      this.logger.error('Error enviando email de recuperación via OneSignal:', error);
       return { 
         message: 'Si el email existe, se enviarán instrucciones de recuperación.' 
       };
@@ -418,7 +416,7 @@ export class AuthService {
                     </p>
                     
                     <div class="warning">
-                        <strong>⚠️ Importante:</strong>
+                        <strong>Importante:</strong>
                         <p>Este enlace expirará en 1 hora. Si no solicitaste este cambio, puedes ignorar este email.</p>
                     </div>
                     
@@ -436,14 +434,14 @@ export class AuthService {
         </html>
       `;
 
-      await this.emailService.enviarEmailPersonalizado(
+      await this.oneSignalService.enviarEmailPersonalizado(
         email,
         emailSubject,
         emailBody
       );
 
     } catch (error) {
-      this.logger.error('Error en _enviarEmailRecuperacion:', error);
+      this.logger.error('Error en _enviarEmailRecuperacion via OneSignal:', error);
       throw new InternalServerErrorException('No se pudo enviar el email de recuperación.');
     }
   }
@@ -478,7 +476,7 @@ export class AuthService {
                     <p>Tu contraseña ha sido actualizada exitosamente.</p>
                     
                     <div class="security-note">
-                        <strong>🔒 Nota de Seguridad:</strong>
+                        <strong>Nota de Seguridad:</strong>
                         <p>Si no realizaste este cambio, por favor contacta inmediatamente al administrador del sistema.</p>
                     </div>
                     
@@ -493,14 +491,14 @@ export class AuthService {
         </html>
       `;
 
-      await this.emailService.enviarEmailPersonalizado(
+      await this.oneSignalService.enviarEmailPersonalizado(
         email,
         emailSubject,
         emailBody
       );
 
     } catch (error) {
-      this.logger.error('Error en _enviarEmailConfirmacionCambioPassword:', error);
+      this.logger.error('Error en _enviarEmailConfirmacionCambioPassword via OneSignal:', error);
     }
   }
 }
