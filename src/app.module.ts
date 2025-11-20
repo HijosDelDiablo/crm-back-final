@@ -17,6 +17,8 @@ import { TasksModule } from './tasks/tasks.module';
 import { CompraModule } from './compra/compra.module';
 import { ProveedoresModule } from './proveedores/proveedores.module';
 import { GastosModule } from './gastos/gastos.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -86,7 +88,7 @@ import { GastosModule } from './gastos/gastos.module';
     ProveedoresModule,   
     GastosModule,       
   ],
-  controllers: [],
-  providers: [],
+  controllers: [ AppController],
+  providers: [ AppService],
 })
 export class AppModule {}
