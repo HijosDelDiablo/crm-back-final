@@ -1,0 +1,14 @@
+FROM node:20-alpine
+WORKDIR /app
+
+
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
+
+# copiar el resto del código
+COPY . .
+
+EXPOSE 2002
+
+# comando de desarrollo con hot-reload
+CMD ["npm", "run","start:dev"]
