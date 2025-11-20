@@ -11,6 +11,11 @@ import { EmailModule } from '../email/email.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProductModule } from '../product/product.module';
 import { UserModule } from '../user/user.module';
+import { Product, ProductSchema } from './../product/schemas/product.schema';
+import { SimulacionService } from './services/simulacion.service';
+import { EmailModule } from '../email/email.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { ProductModule } from './../product/product.module';
 
 @Module({
   imports: [

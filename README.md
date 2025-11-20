@@ -1,3 +1,43 @@
+# Ejecutar el proyecto con Docker
+
+Instrucciones rápidas para construir y ejecutar la API con Docker. Ejecuta los comandos desde la raíz del proyecto.
+
+Archivos relevantes:
+- Archivo principal de arranque: [src/main.ts](src/main.ts)  
+- Dockerfile usado para construir la imagen: [Dockerfile](Dockerfile)  
+- Archivo de variables de entorno (debe crear manualmente): [.env](.env)
+
+Requisitos
+- Tener Docker instalado y funcionando.
+- Crear manualmente el archivo `.env` (ver sección abajo).
+
+Construir la imagen
+```bash
+docker build -t nodeserver:v2 .
+
+
+## Ejemplos para ejecutar el contenedor
+#### Ejecutar exponiendo el puerto 3000 del contenedor en el puerto 3000 del host:
+docker run -p 3000:3000 --env-file .env --name crm_back nodeserver:v2
+
+#### Ejecutar exponiendo el puerto 3000 del contenedor en el puerto 2001 del host (el puerto del host puede ser el que tú quieras):
+docker run -p 2001:3000 --env-file .env --name crm_back nodeserver:v2
+
+### Nota sobre el puerto del host
+#### El primer número en -p HOST_PORT:CONTAINER_PORT es el puerto del host y puede ser cualquier puerto disponible en tu máquina. Ajusta HOST_PORT según necesites.
+
+## Contenido del .env
+#### Debes crear el archivo .env manualmente en la raíz del proyecto.
+#### El contenido del .env debe obtenerse desde Microsoft Teams, canal "Develop" del equipo, pestaña "Secrets CRM-Back".
+#### No incluyas estas credenciales en repositorios públicos.
+
+## Detener y eliminar el contenedor:
+docker stop crm_back
+docker rm crm_back
+
+## Eliminar la imagen (opcional):
+docker rmi nodeserver:v2
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
