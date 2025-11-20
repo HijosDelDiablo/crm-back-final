@@ -3,11 +3,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { Rol } from '../auth/enums/rol.enum';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UserService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
-
+  
   async findByEmailWithPassword(email: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ email }).select('+password').exec();
   }
@@ -22,9 +23,7 @@ export class UserService {
 
   async findById(id: string, select?: string): Promise<UserDocument | null> {
     const query = this.userModel.findById(id);
-    if (select) {
-      query.select(select);
-    }
+    if (select) query.select(select);
     return query.exec();
   }
 
@@ -38,7 +37,10 @@ export class UserService {
   }
 
   async findAllUsers(): Promise<UserDocument[]> {
-    return this.userModel.find().select('-password').sort({ nombre: 1 }).exec();
+    return this.userModel.find()
+      .select('-password')
+      .sort({ nombre: 1 })
+      .exec();
   }
 
   async updateUserRole(userId: string, newRole: Rol): Promise<UserDocument> {
@@ -47,11 +49,7 @@ export class UserService {
     }
 
     const updatedUser = await this.userModel
-      .findByIdAndUpdate(
-        userId,
-        { rol: newRole },
-        { new: true },
-      )
+      .findByIdAndUpdate(userId, { rol: newRole }, { new: true })
       .select('-password');
 
     if (!updatedUser) {
@@ -62,21 +60,30 @@ export class UserService {
   }
 
   async findAllVendedores(): Promise<UserDocument[]> {
-    return this.userModel.find({ rol: Rol.VENDEDOR }).select('-password').exec();
+    return this.userModel.find({ rol: Rol.VENDEDOR })
+      .select('-password')
+      .exec();
   }
 
   async getVendedorPlayerIds(): Promise<string[]> {
     const vendedores = await this.userModel.find({
       rol: Rol.VENDEDOR,
       oneSignalPlayerId: { $exists: true, $ne: null }
-    }).select('oneSignalPlayerId').exec();
-    
+    }).select('oneSignalPlayerId');
+
     return vendedores
       .map(v => v.oneSignalPlayerId)
-      .filter((playerId): playerId is string => playerId !== null && playerId !== undefined);
+      .filter((id): id is string => id !== null && id !== undefined);
   }
 
-    async updatePlayerId(userId: string, playerId: string): Promise<UserDocument> {
+  async findAllClients(): Promise<UserDocument[]> {
+    return this.userModel.find({ rol: Rol.CLIENTE })
+      .select('-password -twoFactorSecret -twoFactorTempSecret')
+      .sort({ nombre: 1 })
+      .exec();
+  }
+
+  async updatePlayerId(userId: string, playerId: string): Promise<UserDocument> {
     const updatedUser = await this.userModel.findByIdAndUpdate(
       userId,
       { oneSignalPlayerId: playerId },
@@ -90,10 +97,47 @@ export class UserService {
     return updatedUser;
   }
 
-  async findAllClients(): Promise<UserDocument[]> {
-    return this.userModel.find({ rol: Rol.CLIENTE })
-      .select('-password -twoFactorSecret -twoFactorTempSecret')
-      .sort({ nombre: 1 })
-      .exec();
+  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto): Promise<UserDocument> {
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { $set: updateProfileDto },
+        { new: true }
+      )
+      .select('-password -twoFactorSecret -twoFactorTempSecret');
+
+    if (!updatedUser) {
+      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
+    }
+
+    return updatedUser;
+  }
+
+  async uploadProfilePhoto(userId: string, imageUrl: string): Promise<UserDocument> {
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { fotoPerfil: imageUrl },
+        { new: true }
+      )
+      .select('-password');
+
+    if (!updatedUser) {
+      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
+    }
+
+    return updatedUser;
+  }
+
+  async getProfile(userId: string): Promise<UserDocument> {
+    const user = await this.userModel
+      .findById(userId)
+      .select('-password -twoFactorSecret -twoFactorTempSecret');
+
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
+    }
+
+    return user;
   }
 }
