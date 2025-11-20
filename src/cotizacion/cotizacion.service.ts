@@ -9,7 +9,7 @@ import { Product, ProductDocument } from '../product/schemas/product.schema';
 import { User, UserDocument } from '../user/schemas/user.schema';
 import { ValidatedUser } from '../user/schemas/user.schema';
 import { UserService } from '../user/user.service';
-import { EmailService } from '../email/email.service';
+import { OneSignalService } from '../notifications/onesignal.service';
 import { Cotizacion, CotizacionDocument } from './schemas/cotizacion.schema';
 
 @Injectable()
@@ -20,7 +20,7 @@ export class CotizacionService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Cotizacion.name)
     private cotizacionModel: Model<CotizacionDocument>,
-    private readonly emailService: EmailService,
+    private readonly oneSignalService: OneSignalService,
     private readonly userService: UserService,
   ) {}
 
@@ -70,7 +70,7 @@ export class CotizacionService {
     
     const clienteDoc = await this.userService.findById(cliente._id.toString());
     if (clienteDoc) {
-        await this.emailService.enviarCorreoCotizacion(
+        await this.enviarCorreoCotizacionOneSignal(
           clienteDoc as any,
           coche,
           cotizacionGuardada,
@@ -131,12 +131,128 @@ export class CotizacionService {
 
     const cotizacionActualizada = await cotizacion.save();
     
-    await this.emailService.enviarCorreoResultadoCotizacion(
+    await this.enviarCorreoResultadoCotizacionOneSignal(
       cotizacion.cliente,
       cotizacion.coche,
       cotizacionActualizada as any,
     );
 
     return cotizacionActualizada as any as CotizacionDocument;
+  }
+
+  private async enviarCorreoCotizacionOneSignal(
+    cliente: User, 
+    coche: Product, 
+    cotizacion: Cotizacion
+  ): Promise<void> {
+    const subject = 'Tu cotización ha sido generada - SmartAssistant CRM';
+    const htmlBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+          .highlight { background: #dbeafe; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>SmartAssistant CRM</h1>
+            <p>Cotización Generada</p>
+          </div>
+          <div class="content">
+            <h2>Hola ${cliente.nombre},</h2>
+            <p>Tu cotización para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido generada exitosamente.</p>
+            
+            <div class="highlight">
+              <p><b>Pago mensual estimado:</b> $${cotizacion.pagoMensual.toFixed(2)}</p>
+              <p><b>Plazo:</b> ${cotizacion.plazoMeses} meses</p>
+              <p><b>Enganche:</b> $${cotizacion.enganche.toFixed(2)}</p>
+              <p><b>Total a pagar:</b> $${cotizacion.totalPagado.toFixed(2)}</p>
+            </div>
+            
+            <p>Un asesor se pondrá en contacto contigo para revisar los detalles.</p>
+            <p>Gracias por tu interés en nuestros vehículos.</p>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.oneSignalService.enviarEmailPersonalizado(
+      cliente.email,
+      subject,
+      htmlBody
+    );
+  }
+
+  private async enviarCorreoResultadoCotizacionOneSignal(
+    cliente: User, 
+    coche: Product, 
+    cotizacion: Cotizacion
+  ): Promise<void> {
+    const aprobado = cotizacion.status === 'Aprobada';
+    const subject = aprobado 
+      ? '¡Tu solicitud ha sido aprobada! - SmartAssistant CRM' 
+      : 'Resultado de tu solicitud - SmartAssistant CRM';
+    
+    const mensaje = aprobado
+      ? `
+        <p>Nos complace informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #10b981;">APROBADA</b>.</p>
+        <p>Un asesor se pondrá en contacto contigo para continuar con el proceso.</p>
+      `
+      : `
+        <p>Lamentamos informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #ef4444;">RECHAZADA</b>.</p>
+        <p>Si deseas revisar otras opciones de financiamiento, contáctanos.</p>
+      `;
+
+    const htmlBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: ${aprobado ? '#10b981' : '#ef4444'}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>SmartAssistant CRM</h1>
+            <p>${aprobado ? 'Solicitud Aprobada' : 'Solicitud Rechazada'}</p>
+          </div>
+          <div class="content">
+            <h2>Hola ${cliente.nombre},</h2>
+            ${mensaje}
+            <br/>
+            <p>Gracias por confiar en nosotros.</p>
+            <p><i>Atentamente,<br/>El equipo de Ventas</i></p>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.oneSignalService.enviarEmailPersonalizado(
+      cliente.email,
+      subject,
+      htmlBody
+    );
   }
 }
