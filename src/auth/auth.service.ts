@@ -401,6 +401,7 @@ export class AuthService {
                 .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; }
                 .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
                 .warning { background: #fef3c7; border: 1px solid #f59e0b; padding: 12px; border-radius: 6px; margin: 16px 0; }
+                .instructions { background: #f0f9ff; border: 1px solid #0ea5e9; padding: 15px; border-radius: 6px; margin: 16px 0; }
             </style>
         </head>
         <body>
@@ -412,15 +413,21 @@ export class AuthService {
                 <div class="content">
                     <h2>Hola ${nombre},</h2>
                     <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
-                    <p>Para continuar con el proceso, haz clic en el siguiente botón:</p>
+                    
+                    <div class="instructions">
+                        <h3>📱 Instrucciones Rápidas:</h3>
+                        <p>Haz clic en el botón para abrir una página donde podrás copiar tu token de recuperación y seguir las instrucciones para la app móvil.</p>
+                    </div>
                     
                     <p style="text-align: center; margin: 30px 0;">
-                        <a href="${resetLink}" class="button">Restablecer Contraseña</a>
+                        <a href="${resetLink}" class="button">Abrir Instrucciones de Recuperación</a>
                     </p>
                     
                     <div class="warning">
                         <strong>Importante:</strong>
-                        <p>Este enlace expirará en 1 hora. Si no solicitaste este cambio, puedes ignorar este email.</p>
+                        <p>• Este enlace expirará en 1 hora</p>
+                        <p>• Si no solicitaste este cambio, ignora este email</p>
+                        <p>• Necesitarás la app móvil para completar el proceso</p>
                     </div>
                     
                     <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
@@ -442,6 +449,9 @@ export class AuthService {
         emailSubject,
         emailBody
       );
+
+      this.logger.log(`✅ Email de recuperación enviado a: ${email}`);
+      this.logger.log(`🔗 Enlace de recuperación: ${resetLink}`);
 
     } catch (error) {
       this.logger.error('Error en _enviarEmailRecuperacion:', error);
