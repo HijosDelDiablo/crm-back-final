@@ -39,7 +39,7 @@ export class CompraService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly simulacionService: SimulacionService,
-    private readonly oneSignalService: OneSignalService, // ✅ Solo OneSignalService
+    private readonly oneSignalService: OneSignalService,
   ) {}
 
   async iniciarProcesoCompra(
@@ -138,7 +138,6 @@ export class CompraService {
     }
 
     const compraActualizada = await compra.save();
-
     await this.notificarResultadoFinanciamiento(compraActualizada);
 
     return compraActualizada;
@@ -184,10 +183,7 @@ export class CompraService {
       await this.productModel.findByIdAndUpdate(
         cotizacion.coche._id,
         {
-          $inc: {
-            stock: -1,
-            vecesVendido: 1
-          },
+          $inc: { stock: -1, vecesVendido: 1 },
           disponible: false
         }
       );
@@ -233,12 +229,11 @@ export class CompraService {
       .populate('analistaCredito')
       .exec();
 
-    if (!compra) {
-      throw new NotFoundException('Compra no encontrada');
-    }
-
+    if (!compra) throw new NotFoundException('Compra no encontrada');
     return compra;
   }
+
+  // ---------------------------- NOTIFICACIONES -----------------------------
 
   private async notificarNuevaSolicitud(compra: CompraDocument): Promise<void> {
     try {
@@ -324,11 +319,11 @@ export class CompraService {
             </div>
             
             <p>Nuestro equipo de análisis crediticio revisará tu solicitud y te notificaremos el resultado en un plazo máximo de 48 horas.</p>
-            <p>Puedes consultar el estado de tu solicitud en cualquier momento desde tu panel de cliente.</p>
+            <p>Puedes consultar el estado de tu solicitud desde tu panel de cliente.</p>
           </div>
           <div class="footer">
-            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
-            <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
+            <p>Este es un email automático, por favor no respondas.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM</p>
           </div>
         </div>
       </body>
@@ -369,7 +364,7 @@ export class CompraService {
           </div>
           <div class="content">
             <h2>¡Felicidades ${cliente.nombre}!</h2>
-            <p>Nos complace informarte que tu solicitud de financiamiento ha sido <b>APROBADA</b>.</p>
+            <p>Tu financiamiento ha sido aprobado.</p>
             
             <div class="highlight">
               <p><b>Vehículo:</b> ${cotizacion.coche.marca} ${cotizacion.coche.modelo}</p>
@@ -378,21 +373,22 @@ export class CompraService {
               <p><b>Pago mensual:</b> $${resultadoBanco.pagoMensual?.toFixed(2)}</p>
               <p><b>Plazo:</b> ${resultadoBanco.plazoAprobado} meses</p>
             </div>
-            
+
             ${resultadoBanco.condiciones && resultadoBanco.condiciones.length > 0 ? `
             <div class="conditions">
               <h3>Condiciones del financiamiento:</h3>
               <ul>
-                ${resultadoBanco.condiciones.map(cond => `<li>${cond}</li>`).join('')}
+                ${resultadoBanco.condiciones.map(c => `<li>${c}</li>`).join('')}
               </ul>
             </div>
             ` : ''}
-            
-            <p>Un asesor se pondrá en contacto contigo para coordinar la firma de documentos y entrega del vehículo.</p>
+
+            <p>Un asesor te contactará para continuar con el proceso.</p>
           </div>
+
           <div class="footer">
-            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
-            <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
+            <p>Este es un email automático.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM</p>
           </div>
         </div>
       </body>
@@ -425,24 +421,24 @@ export class CompraService {
           </div>
           <div class="content">
             <h2>Hola ${cliente.nombre},</h2>
-            <p>Después de revisar tu solicitud, lamentamos informarte que no podemos aprobar tu financiamiento en este momento.</p>
-            
+            <p>Lamentamos informarte que tu financiamiento no fue aprobado.</p>
+
             <div class="info-box">
-              <p><b>Motivo del rechazo:</b> ${resultadoBanco.motivoRechazo || 'No cumple con los criterios de aprobación'}</p>
+              <p><b>Motivo:</b> ${resultadoBanco.motivoRechazo || 'No cumple con los criterios de aprobación'}</p>
+
               ${resultadoBanco.sugerencias && resultadoBanco.sugerencias.length > 0 ? `
               <p><b>Sugerencias:</b></p>
               <ul>
-                ${resultadoBanco.sugerencias.map(sug => `<li>${sug}</li>`).join('')}
+                ${resultadoBanco.sugerencias.map(s => `<li>${s}</li>`).join('')}
               </ul>
               ` : ''}
             </div>
-            
-            <p>Te invitamos a revisar otras opciones de financiamiento o considerar un vehículo con un precio más accesible.</p>
-            <p>Nuestros asesores están disponibles para ayudarte a encontrar la mejor opción para ti.</p>
+
+            <p>Puedes contactar a un asesor para más opciones.</p>
           </div>
           <div class="footer">
-            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
-            <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
+            <p>Este es un email automático.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM</p>
           </div>
         </div>
       </body>
@@ -475,21 +471,20 @@ export class CompraService {
           </div>
           <div class="content">
             <h2>¡Felicidades ${cliente.nombre}!</h2>
-            <p>Tu compra ha sido completada exitosamente. ¡Disfruta de tu nuevo vehículo!</p>
-            
+            <p>Tu compra ha sido completada.</p>
+
             <div class="highlight">
               <p><b>Vehículo:</b> ${cotizacion.coche.marca} ${cotizacion.coche.modelo}</p>
               <p><b>Fecha de entrega:</b> ${compra.fechaEntrega?.toLocaleDateString()}</p>
               <p><b>Pago mensual:</b> $${cotizacion.pagoMensual.toFixed(2)}</p>
-              <p><b>Próximo pago:</b> ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
+              <p><b>Próximo pago:</b> ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</p>
             </div>
-            
-            <p>Recuerda que tu primer pago vence en 30 días. Puedes realizar tus pagos a través de nuestra plataforma en línea.</p>
-            <p>Si tienes alguna pregunta sobre tu vehículo o financiamiento, no dudes en contactarnos.</p>
+
+            <p>Tu primer pago vence en 30 días.</p>
           </div>
           <div class="footer">
-            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
-            <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
+            <p>Este es un email automático.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM</p>
           </div>
         </div>
       </body>
