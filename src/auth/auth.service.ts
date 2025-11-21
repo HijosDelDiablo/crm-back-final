@@ -377,83 +377,83 @@ export class AuthService {
   }
 
   private async _enviarEmailRecuperacion(
-  email: string, 
-  resetToken: string, 
-  nombre: string
-): Promise<void> {
-  try {
-    // Cambiar a tu esquema personalizado
-    const resetLink = `smartassistant://reset-password?token=${resetToken}`;
+    email: string, 
+    resetToken: string, 
+    nombre: string
+  ): Promise<void> {
+    try {
+      // Cambiar a tu esquema personalizado
+      const resetLink = `smartassistant://reset-password?token=${resetToken}`;
 
-    const emailSubject = 'Recuperación de Contraseña - SmartAssistant CRM';
-    const emailBody = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-              .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-              .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; }
-              .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
-              .warning { background: #fef3c7; border: 1px solid #f59e0b; padding: 12px; border-radius: 6px; margin: 16px 0; }
-              .mobile-note { background: #e0f2fe; border: 1px solid #0284c7; padding: 12px; border-radius: 6px; margin: 16px 0; }
-          </style>
-      </head>
-      <body>
-          <div class="container">
-              <div class="header">
-                  <h1>SmartAssistant CRM</h1>
-                  <p>Recuperación de Contraseña</p>
-              </div>
-              <div class="content">
-                  <h2>Hola ${nombre},</h2>
-                  <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
-                  
-                  <div class="mobile-note">
-                      <strong>Para usuarios móviles:</strong>
-                      <p>Abre este enlace desde tu aplicación SmartAssistant CRM.</p>
-                  </div>
-                  
-                  <p>Para continuar con el proceso, haz clic en el siguiente botón:</p>
-                  
-                  <p style="text-align: center; margin: 30px 0;">
-                      <a href="${resetLink}" class="button">Restablecer Contraseña</a>
-                  </p>
-                  
-                  <div class="warning">
-                      <strong>Importante:</strong>
-                      <p>Este enlace expirará en 1 hora. Si no solicitaste este cambio, puedes ignorar este email.</p>
-                  </div>
-                  
-                  <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
-                  <p style="word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px;">
-                      ${resetLink}
-                  </p>
-                  
-                  <p><strong>Nota:</strong> Este enlace solo funcionará si tienes la aplicación SmartAssistant CRM instalada.</p>
-              </div>
-              <div class="footer">
-                  <p>Este es un email automático, por favor no respondas a este mensaje.</p>
-                  <p>© 2024 SmartAssistant CRM. Todos los derechos reservados.</p>
-              </div>
-          </div>
-      </body>
-      </html>
-    `;
+      const emailSubject = 'Recuperación de Contraseña - SmartAssistant CRM';
+      const emailBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+                .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; }
+                .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+                .warning { background: #fef3c7; border: 1px solid #f59e0b; padding: 12px; border-radius: 6px; margin: 16px 0; }
+                .mobile-note { background: #e0f2fe; border: 1px solid #0284c7; padding: 12px; border-radius: 6px; margin: 16px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>SmartAssistant CRM</h1>
+                    <p>Recuperación de Contraseña</p>
+                </div>
+                <div class="content">
+                    <h2>Hola ${nombre},</h2>
+                    <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
+                    
+                    <div class="mobile-note">
+                        <strong>Para usuarios móviles:</strong>
+                        <p>Abre este enlace desde tu aplicación SmartAssistant CRM.</p>
+                    </div>
+                    
+                    <p>Para continuar con el proceso, haz clic en el siguiente botón:</p>
+                    
+                    <p style="text-align: center; margin: 30px 0;">
+                        <a href="${resetLink}" class="button">Restablecer Contraseña</a>
+                    </p>
+                    
+                    <div class="warning">
+                        <strong>Importante:</strong>
+                        <p>Este enlace expirará en 1 hora. Si no solicitaste este cambio, puedes ignorar este email.</p>
+                    </div>
+                    
+                    <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+                    <p style="word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px;">
+                        ${resetLink}
+                    </p>
+                    
+                    <p><strong>Nota:</strong> Este enlace solo funcionará si tienes la aplicación SmartAssistant CRM instalada.</p>
+                </div>
+                <div class="footer">
+                    <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+                    <p>© 2024 SmartAssistant CRM. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+      `;
 
-    await this.oneSignalService.enviarEmailPersonalizado(
-      email,
-      emailSubject,
-      emailBody
-    );
+      await this.oneSignalService.enviarEmailPersonalizado(
+        email,
+        emailSubject,
+        emailBody
+      );
 
-  } catch (error) {
-    this.logger.error('Error en _enviarEmailRecuperacion via OneSignal:', error);
-    throw new InternalServerErrorException('No se pudo enviar el email de recuperación.');
+    } catch (error) {
+      this.logger.error('Error en _enviarEmailRecuperacion via OneSignal:', error);
+      throw new InternalServerErrorException('No se pudo enviar el email de recuperación.');
+    }
   }
-}
 
   private async _enviarEmailConfirmacionCambioPassword(
     email: string, 
