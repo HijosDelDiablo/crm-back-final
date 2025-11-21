@@ -52,8 +52,14 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleAuthRedirect(@Req() req, @Res() res) {
-    const result = await this.authService.loginConGoogle(req.user);
-    return res.redirect(result.deepLink);
+    try {
+      const result = await this.authService.loginConGoogle(req.user);
+      const redirectUrl = result?.deepLink || '/auth/error';
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      console.error('Error en callback de Google:', error);
+      return res.redirect('/auth/error');
+    }
   }
 
   @Get('profile')
