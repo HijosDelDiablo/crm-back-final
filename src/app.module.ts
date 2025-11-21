@@ -6,6 +6,9 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { HttpModule } from '@nestjs/axios';
 import { join } from 'path';
+
+import { ScheduleModule } from '@nestjs/schedule';
+
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { ProductModule } from './product/product.module';
@@ -35,7 +38,7 @@ import { AppService } from './app.service';
         }`);
 
         if (!uri) {
-          console.error("[Mongoose] ERROR: La variable de entorno DATABASE_URL no está definida.");
+          console.error("[Mongoose] ERROR: DATABASE_URL no está definida.");
         }
 
         return { uri };
@@ -76,6 +79,8 @@ import { AppService } from './app.service';
       serveRoot: '/uploads',
     }),
 
+    ScheduleModule.forRoot(),
+
     AuthModule,
     UserModule,
     ProductModule,
@@ -84,11 +89,11 @@ import { AppService } from './app.service';
     EmailModule,
     NotificationsModule,
     TasksModule,
-    CompraModule,       
-    ProveedoresModule,   
-    GastosModule,       
+    CompraModule,
+    ProveedoresModule,
+    GastosModule,
   ],
-  controllers: [ AppController],
-  providers: [ AppService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
