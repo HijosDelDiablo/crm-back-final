@@ -312,12 +312,16 @@ export class AuthService {
     }
   }
 
+  // ---------------------------------------------------------
+  // 🔵 🔵 🔵 FUNCIÓN ACTUALIZADA (VERSIÓN QUE ME PEDISTE) 🔵 🔵 🔵
+  // ---------------------------------------------------------
   private async _enviarEmailRecuperacion(
     email: string,
     resetToken: string,
     nombre: string,
   ): Promise<void> {
     try {
+<<<<<<< HEAD
       const deepLink = `smartassistant://reset-password?token=${resetToken}`;
 
       const backendUrl = this.configService.get<string>(
@@ -326,6 +330,10 @@ export class AuthService {
       );
 
       const webFallbackLink = `${backendUrl}/auth/reset-password-page?token=${resetToken}`;
+=======
+      // URL que funciona en navegadores y móviles
+      const resetLink = `https://smartassistant.com/reset-password?token=${resetToken}`;
+>>>>>>> c98d4cdafc2b60434707aa5ec1d50857b8d2915e
 
       const emailSubject = 'Recuperación de Contraseña - SmartAssistant CRM';
       const emailBody = `

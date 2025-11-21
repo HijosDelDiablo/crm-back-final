@@ -4,15 +4,20 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     container_name: crm_back_dev
-    working_dir: /app
     ports:
       - "${PORT}:${PORT}"
-    volumes:
-      - ./:/app:cached
-      - node_modules:/app/node_modules
     env_file:
       - .env
     command: npm run start:dev
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: package.json
 volumes:
   node_modules:
     driver: local
