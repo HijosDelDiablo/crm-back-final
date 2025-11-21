@@ -5,11 +5,12 @@ import { CompraController } from './compra.controller';
 import { Compra, CompraSchema } from './schemas/compra.schema';
 import { Cotizacion, CotizacionSchema } from '../cotizacion/schemas/cotizacion.schema';
 import { User, UserSchema } from '../user/schemas/user.schema';
-import { Product, ProductSchema } from './../product/schemas/product.schema';
+import { Product, ProductSchema } from '../product/schemas/product.schema';
 import { SimulacionService } from './services/simulacion.service';
 import { EmailModule } from '../email/email.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { ProductModule } from './../product/product.module';
+import { ProductModule } from '../product/product.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -19,9 +20,11 @@ import { ProductModule } from './../product/product.module';
       { name: User.name, schema: UserSchema },
       { name: Product.name, schema: ProductSchema },
     ]),
+
     EmailModule,
     NotificationsModule,
     ProductModule,
+    UserModule,
   ],
   controllers: [CompraController],
   providers: [CompraService, SimulacionService],

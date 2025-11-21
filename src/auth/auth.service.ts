@@ -18,7 +18,6 @@ import { TwoFactorCodeDto } from './dto/2fa-code.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { OneSignalService } from '../notifications/onesignal.service';
-import { EmailService } from '../email/email.service'; // ← LÍNEA 1: AGREGAR ESTO
 import { compare, hash } from 'bcrypt';
 import { Rol } from './enums/rol.enum';
 
@@ -31,7 +30,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly oneSignalService: OneSignalService,
-    private readonly emailService: EmailService, // ← LÍNEA 2: AGREGAR ESTO
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
@@ -79,83 +77,155 @@ export class AuthService {
   }
 
   async autenticarCon2FA(userId: string, code: string) {
+    this.logger.log(`Iniciando autenticación 2FA para usuario: ${userId}`);
+    
     const usuario = await this.userModel.findById(userId);
     if (!usuario) {
+      this.logger.error(`Usuario no encontrado: ${userId}`);
       throw new UnauthorizedException('Usuario no encontrado.');
     }
+
+    this.logger.log(`Usuario encontrado: ${usuario.email}`);
+    this.logger.log(`2FA habilitado: ${usuario.twoFactorEnabled}`);
+    this.logger.log(`Tiene código temporal: ${!!usuario.twoFactorTempSecret}`);
+    this.logger.log(`Código expira: ${usuario.twoFactorTempExpiry}`);
+
     if (!usuario.twoFactorEnabled) {
+      this.logger.error(`2FA no está activado para: ${usuario.email}`);
       throw new UnauthorizedException('2FA no está activado para este usuario.');
     }
-    const isMatch = await compare(code, usuario.twoFactorTempSecret || '');
-    if (!isMatch || !usuario.twoFactorTempExpiry || usuario.twoFactorTempExpiry < new Date()) {
-      throw new UnauthorizedException('Código 2FA inválido o expirado.');
+
+    if (!usuario.twoFactorTempSecret) {
+      this.logger.error(`No hay código temporal para: ${usuario.email}`);
+      throw new UnauthorizedException('No hay código de verificación activo.');
     }
+
+    if (!usuario.twoFactorTempExpiry || usuario.twoFactorTempExpiry < new Date()) {
+      this.logger.error(`Código expirado para: ${usuario.email}`);
+      throw new UnauthorizedException('El código ha expirado.');
+    }
+
+    this.logger.log(`Verificando código ingresado: ${code}`);
+    const isMatch = await compare(code, usuario.twoFactorTempSecret);
+    
+    if (!isMatch) {
+      this.logger.error(`Código incorrecto para: ${usuario.email}`);
+      throw new UnauthorizedException('Código 2FA inválido.');
+    }
+
+    this.logger.log(`Código correcto, limpiando datos temporales`);
+    
     usuario.twoFactorTempSecret = undefined;
     usuario.twoFactorTempExpiry = undefined;
     await usuario.save();
+
+    this.logger.log(`Autenticación 2FA exitosa para: ${usuario.email}`);
+    
     return this._generarTokenAcceso(usuario.toObject() as ValidatedUser);
   }
 
   async generarSecreto2FA(user: ValidatedUser) {
+    this.logger.log(`Iniciando generación de código 2FA para: ${user.email}`);
+    
     const usuario = await this.userModel.findById(user._id);
     if (!usuario) {
+      this.logger.error(`Usuario no encontrado: ${user._id}`);
       throw new NotFoundException('Usuario no encontrado.');
     }
+
     if (usuario.twoFactorEnabled) {
+      this.logger.warn(`2FA ya está activado para: ${user.email}`);
       throw new BadRequestException('El 2FA ya está activado.');
     }
 
     const tempCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+    this.logger.log(`Código generado: ${tempCode}`);
+
     const hashedCode = await hash(tempCode, 10);
+    this.logger.log(`Código hasheado exitosamente`);
+
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+    this.logger.log(`Código expirará: ${expiry.toISOString()}`);
     
     usuario.twoFactorTempSecret = hashedCode;
     usuario.twoFactorTempExpiry = expiry;
     await usuario.save();
-
-    this.logger.log(`📧 Intentando enviar código 2FA a: ${usuario.email}`);
-    this.logger.log(`🔢 Código generado: ${tempCode}`);
+    
+    this.logger.log(`Código guardado en base de datos`);
 
     try {
-      await this.emailService.enviarCodigo2FA(usuario.email, tempCode); // ← LÍNEA 3: CAMBIAR DE oneSignalService a emailService
-      this.logger.log('✅ Email 2FA enviado exitosamente');
-      return { message: 'Se ha enviado un código de 6 dígitos a tu correo electrónico.' };
+      this.logger.log(`Enviando email via OneSignal a: ${usuario.email}`);
+      await this.oneSignalService.enviarCodigo2FA(usuario.email, tempCode);
+      this.logger.log(`Email 2FA enviado exitosamente via OneSignal a: ${usuario.email}`);
+      
+      return { 
+        message: 'Se ha enviado un código de 6 dígitos a tu correo electrónico.',
+        expiresAt: expiry.toISOString() 
+      };
     } catch (error) {
-      this.logger.error('❌ Error enviando 2FA:', error.message);
+      this.logger.error(`Error enviando email via OneSignal a ${usuario.email}:`, error.message);
       this.logger.error('Stack trace:', error.stack);
-      throw new BadRequestException('No se pudo enviar el correo de verificación.');
+      
+      usuario.twoFactorTempSecret = undefined;
+      usuario.twoFactorTempExpiry = undefined;
+      await usuario.save();
+      
+      throw new BadRequestException('No se pudo enviar el correo de verificación. Por favor intenta de nuevo.');
     }
   }
 
   async activar2FA(user: ValidatedUser, dto: TwoFactorCodeDto) {
+    this.logger.log(`Activando 2FA para usuario: ${user.email}`);
+    
     const usuario = await this.userModel.findById(user._id);
     if (!usuario) {
+      this.logger.error(`Usuario no encontrado: ${user._id}`);
       throw new NotFoundException('Usuario no encontrado.');
     }
-    if (
-      !usuario.twoFactorTempSecret ||
-      !usuario.twoFactorTempExpiry ||
-      usuario.twoFactorTempExpiry < new Date()
-    ) {
-      throw new UnauthorizedException('El código ha expirado o es inválido.');
+
+    this.logger.log(`Verificando código temporal...`);
+    this.logger.log(`Tiene código: ${!!usuario.twoFactorTempSecret}`);
+    this.logger.log(`Expira: ${usuario.twoFactorTempExpiry}`);
+
+    if (!usuario.twoFactorTempSecret || !usuario.twoFactorTempExpiry) {
+      this.logger.error(`No hay código temporal para: ${user.email}`);
+      throw new UnauthorizedException('No hay código de verificación pendiente.');
     }
+
+    if (usuario.twoFactorTempExpiry < new Date()) {
+      this.logger.error(`Código expirado para: ${user.email}`);
+      throw new UnauthorizedException('El código ha expirado. Solicita uno nuevo.');
+    }
+
     const isMatch = await compare(dto.code, usuario.twoFactorTempSecret);
     if (!isMatch) {
+      this.logger.error(`Código incorrecto para: ${user.email}`);
       throw new UnauthorizedException('El código de 6 dígitos es incorrecto.');
     }
+
+    this.logger.log(`Código verificado, activando 2FA`);
+
     usuario.twoFactorEnabled = true;
     usuario.twoFactorTempSecret = undefined;
     usuario.twoFactorTempExpiry = undefined;
     await usuario.save();
+
+    this.logger.log(`2FA activado exitosamente para: ${user.email}`);
+    
     return { message: 'El 2FA ha sido activado exitosamente.' };
   }
 
   async desactivar2FA(userId: string) {
+    this.logger.log(`Desactivando 2FA para usuario: ${userId}`);
+    
     await this.userService.update(userId, {
       twoFactorEnabled: false,
       twoFactorTempSecret: undefined,
       twoFactorTempExpiry: undefined,
     });
+    
+    this.logger.log(`2FA desactivado para usuario: ${userId}`);
+    
     return { message: '2FA desactivado exitosamente.' };
   }
 
@@ -270,13 +340,13 @@ export class AuthService {
 
     try {
       await this._enviarEmailRecuperacion(user.email, resetToken, user.nombre);
-      this.logger.log(`Email de recuperación enviado a: ${user.email}`);
+      this.logger.log(`Email de recuperación enviado via OneSignal a: ${user.email}`);
       
       return { 
         message: 'Si el email existe, se enviarán instrucciones de recuperación.' 
       };
     } catch (error) {
-      this.logger.error('Error enviando email de recuperación:', error);
+      this.logger.error('Error enviando email de recuperación via OneSignal:', error);
       return { 
         message: 'Si el email existe, se enviarán instrucciones de recuperación.' 
       };
@@ -346,7 +416,7 @@ export class AuthService {
                     </p>
                     
                     <div class="warning">
-                        <strong>⚠️ Importante:</strong>
+                        <strong>Importante:</strong>
                         <p>Este enlace expirará en 1 hora. Si no solicitaste este cambio, puedes ignorar este email.</p>
                     </div>
                     
@@ -364,14 +434,14 @@ export class AuthService {
         </html>
       `;
 
-      await this.emailService.enviarEmailPersonalizado( // ← LÍNEA 4: CAMBIAR DE oneSignalService a emailService
+      await this.oneSignalService.enviarEmailPersonalizado(
         email,
         emailSubject,
         emailBody
       );
 
     } catch (error) {
-      this.logger.error('Error en _enviarEmailRecuperacion:', error);
+      this.logger.error('Error en _enviarEmailRecuperacion via OneSignal:', error);
       throw new InternalServerErrorException('No se pudo enviar el email de recuperación.');
     }
   }
@@ -406,7 +476,7 @@ export class AuthService {
                     <p>Tu contraseña ha sido actualizada exitosamente.</p>
                     
                     <div class="security-note">
-                        <strong>🔒 Nota de Seguridad:</strong>
+                        <strong>Nota de Seguridad:</strong>
                         <p>Si no realizaste este cambio, por favor contacta inmediatamente al administrador del sistema.</p>
                     </div>
                     
@@ -421,14 +491,14 @@ export class AuthService {
         </html>
       `;
 
-      await this.emailService.enviarEmailPersonalizado( // Ya cambié esta línea también
+      await this.oneSignalService.enviarEmailPersonalizado(
         email,
         emailSubject,
         emailBody
       );
 
     } catch (error) {
-      this.logger.error('Error en _enviarEmailConfirmacionCambioPassword:', error);
+      this.logger.error('Error en _enviarEmailConfirmacionCambioPassword via OneSignal:', error);
     }
   }
 }
