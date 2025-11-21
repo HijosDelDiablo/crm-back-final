@@ -53,7 +53,7 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   async googleAuthRedirect(@Req() req, @Res() res) {
     const result = await this.authService.loginConGoogle(req.user);
-    return res.redirect(result.url);
+    return res.redirect(result.deepLink);
   }
 
   @Get('profile')
