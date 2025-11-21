@@ -376,14 +376,17 @@ export class AuthService {
     }
   }
 
+  // ---------------------------------------------------------
+  // 🔵 🔵 🔵 FUNCIÓN ACTUALIZADA (VERSIÓN QUE ME PEDISTE) 🔵 🔵 🔵
+  // ---------------------------------------------------------
   private async _enviarEmailRecuperacion(
     email: string, 
     resetToken: string, 
     nombre: string
   ): Promise<void> {
     try {
-      const backendUrl = this.configService.get<string>('BACKEND_URL', 'https://crm-back-final-production.up.railway.app');
-      const resetLink = `${backendUrl}/auth/reset-password-page?token=${resetToken}`;
+      // URL que funciona en navegadores y móviles
+      const resetLink = `https://smartassistant.com/reset-password?token=${resetToken}`;
 
       const emailSubject = 'Recuperación de Contraseña - SmartAssistant CRM';
       const emailBody = `
