@@ -61,6 +61,22 @@ export class AuthController {
       return res.redirect('/auth/error');
     }
   }
+  @Get('googleInWeb')
+  @UseGuards(AuthGuard('googleWeb'))
+  async googleAuthWeb(@Req() req) {}
+
+  @Get('google/callback/web')
+  @UseGuards(AuthGuard('googleWeb'))
+  async googleAuthRedirectWeb(@Req() req, @Res() res) {
+    try {
+      const result = await this.authService.loginConGoogle(req.user);
+      const redirectUrl = result?.deepLink || '/auth/error';
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      console.error('Error en callback de Google:', error);
+      return res.redirect('/auth/error');
+    }
+  }
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
