@@ -22,6 +22,7 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { GastosModule } from './gastos/gastos.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ActivityUserModule } from './activity-user/activity-user.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { AppService } from './app.service';
     CompraModule,
     ProveedoresModule,
     GastosModule,
+    ActivityUserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
