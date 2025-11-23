@@ -4,13 +4,15 @@ import { Model } from 'mongoose';
 import  dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { ActivityUser, ActivityUserDocument } from './schemas/activity_user.schema';
+import { FavoriteStats, FavoriteStatsDocument } from './schemas/favorite-stats.schema';
 
 dayjs.extend(isoWeek);
 
 @Injectable()
-export class ActivityUserService {
+export class StatisticsService {
   constructor(
     @InjectModel(ActivityUser.name) private activityModel: Model<ActivityUserDocument>,
+    @InjectModel(FavoriteStats.name) private favoriteStatsModel: Model<FavoriteStatsDocument>,
 
   ) {}
 
@@ -58,4 +60,39 @@ export class ActivityUserService {
 
     return { ok: true, addedSeconds: safeSeconds };
   }
+
+
+async addFavoritePoint(productId: string) {
+  const now = dayjs();
+  const year = now.year();
+  const week = now.isoWeek();
+  let stats = await this.favoriteStatsModel.findOne({ productId, year, week });
+
+  if (!stats) {
+    stats = await this.favoriteStatsModel.create({
+      productId,
+      year,
+      week,
+      totalActiveSeconds: 0,
+      lastHeartbeatAt: null,
+    });
+  } 
+}
+async getTopFavorites(year: number, week: number, limit: number) {
+  limit = limit ? limit : 10;
+  return this.favoriteStatsModel
+    .find({ year, week })
+    .sort({ totalFavorites: -1 })
+    .limit(limit)
+    .lean();
+}
+
+async getHistory(productId: string) {
+  return this.favoriteStatsModel
+    .find({ productId })
+    .sort({ year: 1, week: 1 })
+    .lean();
+}
+
+
 }

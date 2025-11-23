@@ -22,7 +22,8 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { GastosModule } from './gastos/gastos.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ActivityUserModule } from './activity-user/activity-user.module';
+import { StatisticsModule } from './statistics/statistics.module';
+import { FavoritesUserModule } from './favorites-user/favorites-user.module';
 
 @Module({
   imports: [
@@ -93,7 +94,8 @@ import { ActivityUserModule } from './activity-user/activity-user.module';
     CompraModule,
     ProveedoresModule,
     GastosModule,
-    ActivityUserModule,
+    StatisticsModule,
+    FavoritesUserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
