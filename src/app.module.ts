@@ -71,7 +71,7 @@ import { IamodelModule } from './iamodel/iamodel.module';
     }),
 
     HttpModule.register({
-      timeout: 5000,
+      timeout: 60000,
       maxRedirects: 5,
     }),
 
