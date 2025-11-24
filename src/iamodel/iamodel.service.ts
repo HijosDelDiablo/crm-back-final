@@ -63,26 +63,26 @@ export class IamodelService {
 
   private async classifyIntent(userPrompt: string): Promise<{ action: string; params?: any }> {
     const systemPrompt = `
-      Eres el sistema operativo de un CRM automotriz. Analiza el prompt del usuario y devuelve un JSON.
+      Eres un clasificador de comandos JSON. NO hables. Solo responde JSON.
       
-      ACCIONES DISPONIBLES:
-      - "get_my_tasks": Si pregunta: "¿Qué tengo que hacer hoy?", "mis tareas", "recordatorios", "agenda".
-      - "get_sales_report": Si pregunta: "¿Cómo vamos de ventas?", "resumen del mes", "cuánto hemos vendido", "ganancias".
-      - "get_expenses": Si pregunta: "Ver gastos", "gastos pendientes", "¿cuánto gastamos en luz?", "pagos por hacer".
-      - "get_pending_quotes": Si busca "cotizaciones", "clientes interesados", "pendientes de cierre".
-      - "search_cars": Si menciona buscar coches, inventario, modelos específicos (ej. "Busca un Mazda rojo").
-      - "get_clients": Si quiere ver lista de clientes.
-      - "sales_advice": Si pide ayuda para vender, tips de negociación.
-      - "chat": Saludos o preguntas fuera de contexto.
-
-      FORMATO JSON RESPUESTA:
-      {"action": "nombre_accion", "params": {"keywords": "mazda rojo"}}
+      Si el usuario pide tareas o agenda -> {"action": "get_my_tasks"}
+      Si pide ventas, ganancias o reporte -> {"action": "get_sales_report"}
+      Si pide gastos o pagos -> {"action": "get_expenses"}
+      Si pide cotizaciones pendientes -> {"action": "get_pending_quotes"}
+      Si busca coches (ej. Mazda) -> {"action": "search_cars", "params": {"keywords": "mazda"}}
+      Si pide clientes -> {"action": "get_clients"}
+      Cualquier otra cosa -> {"action": "chat"}
     `;
 
     try {
       const response = await this.callOllama(systemPrompt, userPrompt, true);
+      
       const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) return JSON.parse(jsonMatch[0]);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      
+      // Fallback si no es JSON válido
       return { action: 'chat' };
     } catch (error) {
       this.logger.error('Fallo en clasificación', error);
