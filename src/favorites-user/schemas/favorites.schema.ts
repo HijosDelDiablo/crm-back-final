@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { Types } from 'mongoose';
-import { Product } from 'src/product/schemas/product.schema';
-import { User } from 'src/user/schemas/user.schema';
+import { Product } from '../../product/schemas/product.schema';
+import { User } from '../../user/schemas/user.schema';
 
 @Schema({ timestamps: true })
 export class Favorites {

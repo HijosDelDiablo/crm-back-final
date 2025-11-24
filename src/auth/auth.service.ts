@@ -111,7 +111,7 @@ export class AuthService {
 
     return {
       redirect: true,
-      deepLink: `${this.configService.get<string>('FRONTEND_URL_WEB_LOGIN_SUCCESS')}?token=${tokenData.accessToken}`,
+      deepLink: `${this.configService.get<string>('FRONTEND_URL_WEB_LOGIN_SUCCESS')}?user=${encodeURIComponent(JSON.stringify(tokenData.user))}&token=${tokenData.accessToken}`,
     };
   }
 

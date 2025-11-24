@@ -20,16 +20,22 @@ export class StatisticsController {
 
   @Get('favorites/top')
 async getTopFavorites(
-  @Query('year') year: number,
-  @Query('week') week: number,
+  @Query('year') year: 2025,
+  @Query('startWeek') startWeek: 1,
+  @Query('endWeek') endWeek: 52,
   @Query('limit') limit = 10
 ) {
-  return this.statisticsService.getTopFavorites(year, week, limit);
+  return this.statisticsService.getTopFavorites(year, startWeek, endWeek, limit);
 }
 
-@Get('favorites/history/:productId')
+@Get('favorite/history/:productId')
 async getHistory(@Param('productId') productId: string) {
   return this.statisticsService.getHistory(productId);
+}
+
+@Get('seller-with-more-activity')
+async getSellerWithMoreActivity(){
+  return this.statisticsService.getSellerWithMoreActivity();
 }
 
 

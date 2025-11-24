@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import  dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { Favorites, FavoritesDocument } from './schemas/favorites.schema';
-import { StatisticsService } from 'src/statistics/statistics.service';
+import { StatisticsService } from '../statistics/statistics.service';
 
 dayjs.extend(isoWeek);
 

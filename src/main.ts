@@ -14,7 +14,8 @@ async function bootstrap() {
   );
 
   
-  const port = Number(process.env.PORT ?? 2002);
+  const port = Number(process.env.FRONTEND_PORT ?? 2000);
+  const backendPort = Number(process.env.PORT ?? 2002);
 
   app.enableCors({
     origin: [
@@ -44,7 +45,7 @@ async function bootstrap() {
     optionsSuccessStatus: 204
   });
 
-  await app.listen(port ?? 2002, '0.0.0.0');
+  await app.listen(backendPort ?? 2002, '0.0.0.0');
   console.log(`Servidor ejecutándose en: ${await app.getUrl()}`);
 }
 bootstrap();

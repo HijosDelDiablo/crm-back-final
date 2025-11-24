@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { FavoritesSchema } from './schemas/favorites.schema';
 import { FavoritesUserController } from './favorites-user.controller';
 import { FavoritesUserService } from './favorites-user.service';
-import { StatisticsModule } from 'src/statistics/statistics.module';
+import { StatisticsModule } from '../statistics/statistics.module';
 
 @Module({
     imports: [

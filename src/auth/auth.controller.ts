@@ -69,7 +69,7 @@ export class AuthController {
   @UseGuards(AuthGuard('googleWeb'))
   async googleAuthRedirectWeb(@Req() req, @Res() res) {
     try {
-      const result = await this.authService.loginConGoogle(req.user);
+      const result = await this.authService.loginConGoogleWeb(req.user);
       const redirectUrl = result?.deepLink || '/auth/error';
       return res.redirect(redirectUrl);
     } catch (error) {
