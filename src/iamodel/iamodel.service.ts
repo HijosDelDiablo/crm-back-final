@@ -32,10 +32,14 @@ export class IamodelService {
 
   async processQuery(prompt: string, userId: string): Promise<IaResponse> {
     const intent = await this.classifyIntentRobust(prompt);
-    this.logger.log(`Estrategia seleccionada: ${intent.action} (Params: ${JSON.stringify(intent.params)}) | Usuario: ${userId}`);
+    this.logger.log(`🧠 Estrategia seleccionada: ${intent.action} (Params: ${JSON.stringify(intent.params)}) | Usuario: ${userId}`);
 
     try {
       switch (intent.action) {
+
+        case 'get_products':
+          return this.getProductsGeneral();
+
         case 'get_pending_quotes':
           return this.getPendingQuotes();
         
@@ -95,7 +99,7 @@ export class IamodelService {
         return parsed;
       }
     } catch (e) {
-      this.logger.warn(`Falló clasificación IA, usando Plan B (Keywords). Error: ${e.message}`);
+      this.logger.warn(`⚠️ Falló clasificación IA, usando Plan B (Keywords). Error: ${e.message}`);
     }
 
     if (cleanPrompt.match(/tarea|agenda|pendiente|hacer/)) return { action: 'get_my_tasks' };
@@ -265,6 +269,30 @@ export class IamodelService {
     );
     return { message: txt, type: 'text' };
   }
+
+  private async getProductsGeneral(): Promise<IaResponse> {
+    const products = await this.productModel.find({
+      disponible: true,
+      stock: { $gt: 0 }
+    })
+    .populate('proveedor', 'nombre')
+    .sort({ createdAt: -1 })
+    .limit(20)
+    .exec();
+
+    if (!products || products.length === 0) {
+      return {
+        message: "Actualmente no veo productos disponibles en el inventario general.",
+        type: 'text'
+      };
+    }
+
+    return {
+      message: `Aquí tienes un listado de los ${products.length} productos más recientes disponibles en inventario.`,
+      type: 'products_grid',
+      data: products
+    };
+  }
 
   private async chatWithAi(prompt: string): Promise<IaResponse> {
     const txt = await this.callOllama(
