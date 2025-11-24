@@ -226,19 +226,26 @@ export class IamodelService {
   private async callOllama(system: string, user: string, jsonMode: boolean = false): Promise<string> {
     try {
       const payload: any = {
-        model: this.model,
-        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+        model: this.model, 
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user }
+        ],
         stream: false,
       };
       if (jsonMode) payload.format = 'json';
-      
+
       const { data } = await firstValueFrom(
-        this.httpService.post(`${this.ollamaHost}/api/chat`, payload)
+        this.httpService.post(`${this.ollamaHost}/api/chat`, payload, { timeout: 120000 })
       );
       return data.message.content;
     } catch (e) {
-      this.logger.error(e);
-      return "Lo siento, mis sistemas neuronales están reiniciándose. Intenta en un momento.";
+      this.logger.error(`Error Ollama: ${e.message}`);
+      
+      if (e.response) {
+        this.logger.error(`Respuesta del servidor (${e.response.status}): ${JSON.stringify(e.response.data)}`);
+      }
+      return "Lo siento, mi cerebro de IA se está configurando. Intenta de nuevo en unos minutos.";
     }
   }
 }
