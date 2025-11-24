@@ -1,4 +1,4 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -31,69 +31,87 @@ export class IamodelService {
   }
 
   async processQuery(prompt: string, userId: string): Promise<IaResponse> {
-    const intent = await this.classifyIntent(prompt);
-    this.logger.log(`Intención IA: ${intent.action} | Usuario: ${userId}`);
+    const intent = await this.classifyIntentRobust(prompt);
+    this.logger.log(`Estrategia seleccionada: ${intent.action} (Params: ${JSON.stringify(intent.params)}) | Usuario: ${userId}`);
 
-    switch (intent.action) {
-      case 'get_pending_quotes':
-        return this.getPendingQuotes();
-      
-      case 'search_cars':
-        return this.searchCars(intent.params?.keywords || prompt);
-      
-      case 'get_clients':
-        return this.getClients();
+    try {
+      switch (intent.action) {
+        case 'get_pending_quotes':
+          return this.getPendingQuotes();
+        
+        case 'search_cars':
+          return this.searchCars(intent.params?.keywords || prompt);
+        
+        case 'get_clients':
+          return this.getClients();
 
-      case 'get_my_tasks':
-        return this.getMyTasks(userId);
+        case 'get_my_tasks':
+          return this.getMyTasks(userId);
 
-      case 'get_sales_report':
-        return this.getSalesReport();
+        case 'get_sales_report':
+          return this.getSalesReport();
 
-      case 'get_expenses':
-        return this.getExpenses(intent.params?.status);
+        case 'get_expenses':
+          return this.getExpenses(intent.params?.status);
 
-      case 'sales_advice':
-        return this.getSalesAdvice(prompt);
+        case 'sales_advice':
+          return this.getSalesAdvice(prompt);
 
-      default:
-        return this.chatWithAi(prompt);
+        default:
+          return this.chatWithAi(prompt);
+      }
+    } catch (error) {
+      this.logger.error(`Error procesando la acción ${intent.action}: ${error.message}`);
+      return { 
+        message: "Tuve un problema interno procesando esos datos. Intenta de nuevo.", 
+        type: 'text' 
+      };
     }
   }
 
-  private async classifyIntent(userPrompt: string): Promise<{ action: string; params?: any }> {
+  private async classifyIntentRobust(userPrompt: string): Promise<{ action: string; params?: any }> {
+    const cleanPrompt = userPrompt.toLowerCase().trim();
+
     const systemPrompt = `
-      Eres un clasificador de comandos JSON. NO hables. Solo responde JSON.
+      Eres una API que clasifica intenciones. Responde SOLO un objeto JSON.
+      Input: "${userPrompt}"
       
-      Si el usuario pide tareas o agenda -> {"action": "get_my_tasks"}
-      Si pide ventas, ganancias o reporte -> {"action": "get_sales_report"}
-      Si pide gastos o pagos -> {"action": "get_expenses"}
-      Si pide cotizaciones pendientes -> {"action": "get_pending_quotes"}
-      Si busca coches (ej. Mazda) -> {"action": "search_cars", "params": {"keywords": "mazda"}}
-      Si pide clientes -> {"action": "get_clients"}
-      Cualquier otra cosa -> {"action": "chat"}
+      Opciones JSON:
+      - Tareas/Agenda: {"action": "get_my_tasks"}
+      - Ventas/Reporte/Ganancias: {"action": "get_sales_report"}
+      - Gastos/Pagos: {"action": "get_expenses"}
+      - Cotizaciones pendientes: {"action": "get_pending_quotes"}
+      - Buscar auto (ej: mazda): {"action": "search_cars", "params": {"keywords": "mazda"}}
+      - Clientes: {"action": "get_clients"}
+      - Consejo ventas: {"action": "sales_advice"}
+      - Saludo/Otro: {"action": "chat"}
     `;
 
     try {
-      const response = await this.callOllama(systemPrompt, userPrompt, true);
+      const aiResponse = await this.callOllama(systemPrompt, userPrompt, true);
+      const parsed = this.extractJson(aiResponse);
       
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      if (parsed && parsed.action) {
+        return parsed;
       }
-      
-      // Fallback si no es JSON válido
-      return { action: 'chat' };
-    } catch (error) {
-      this.logger.error('Fallo en clasificación', error);
-      return { action: 'chat' };
+    } catch (e) {
+      this.logger.warn(`Falló clasificación IA, usando Plan B (Keywords). Error: ${e.message}`);
     }
+
+    if (cleanPrompt.match(/tarea|agenda|pendiente|hacer/)) return { action: 'get_my_tasks' };
+    if (cleanPrompt.match(/venta|reporte|ganancia|mes|vendido/)) return { action: 'get_sales_report' };
+    if (cleanPrompt.match(/gasto|pago|luz|agua|renta/)) return { action: 'get_expenses' };
+    if (cleanPrompt.match(/cotiza|aprobacion|cliente interesado/)) return { action: 'get_pending_quotes' };
+    if (cleanPrompt.match(/cliente|lista|directorio/)) return { action: 'get_clients' };
+    if (cleanPrompt.match(/busca|coche|auto|carro|modelo|marca/)) {
+      return { action: 'search_cars', params: { keywords: userPrompt } };
+    }
+    if (cleanPrompt.match(/consejo|tip|ayuda|vender/)) return { action: 'sales_advice' };
+
+    return { action: 'chat' };
   }
 
   private async getMyTasks(userId: string): Promise<IaResponse> {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
     const tasks = await this.taskModel.find({
       vendedor: new Types.ObjectId(userId),
       isCompleted: false
@@ -103,13 +121,20 @@ export class IamodelService {
     .limit(10)
     .exec();
 
+    if (!tasks || tasks.length === 0) {
+      return {
+        message: "¡Todo limpio! No tienes tareas pendientes por ahora.",
+        type: 'text'
+      };
+    }
+
     const summary = await this.callOllama(
-      "Eres un asistente personal eficiente.", 
-      `Tengo ${tasks.length} tareas pendientes. Las primeras vencen el ${tasks[0]?.dueDate}. Dame un resumen de 1 linea animándome a completarlas.`
+      "Eres un asistente útil.", 
+      `Resume: Tengo ${tasks.length} tareas. La más urgente es "${tasks[0].title}". Dilo en una frase motivadora corta.`
     );
 
     return {
-      message: summary,
+      message: summary.replace(/"/g, ''),
       type: 'tasks_list',
       data: tasks
     };
@@ -132,9 +157,17 @@ export class IamodelService {
 
     const data = stats[0] || { totalVendido: 0, count: 0, avgTicket: 0 };
 
+    if (data.count === 0) {
+      return {
+        message: "Aún no hay ventas registradas este mes. ¡Es momento de cerrar el primer trato!",
+        type: 'kpi_dashboard',
+        data: { period: 'Mes Actual', totalSales: 0, salesCount: 0, average: 0 }
+      };
+    }
+
     const analysis = await this.callOllama(
-      "Eres un analista financiero.",
-      `Este mes llevamos ${data.count} ventas por un total de $${data.totalVendido}. Dame una opinión muy breve sobre el rendimiento.`
+      "Eres un analista de negocios.",
+      `Datos: ${data.count} ventas, Total: $${data.totalVendido}. Dame una frase corta de feedback positivo.`
     );
 
     return {
@@ -151,21 +184,22 @@ export class IamodelService {
 
   private async getExpenses(statusFilter?: string): Promise<IaResponse> {
     const filter: any = {};
-    if (statusFilter) {
-      filter.estado = statusFilter;
-    } else {
-      filter.estado = 'Pendiente';
-    }
+    if (statusFilter) filter.estado = statusFilter;
+    else filter.estado = 'Pendiente';
 
     const gastos = await this.gastoModel.find(filter)
       .sort({ fechaGasto: -1 })
       .limit(8)
       .exec();
 
+    if (gastos.length === 0) {
+      return { message: "No encontré gastos pendientes registrados.", type: 'text' };
+    }
+
     const total = gastos.reduce((acc, curr) => acc + curr.monto, 0);
 
     return {
-      message: `He encontrado ${gastos.length} gastos pendientes por un total de $${total}.`,
+      message: `Tienes ${gastos.length} gastos pendientes. Total acumulado: $${total}.`,
       type: 'expenses_table',
       data: gastos
     };
@@ -179,54 +213,71 @@ export class IamodelService {
       .limit(5)
       .exec();
 
+    if (cotizaciones.length === 0) {
+      return { message: "No tienes cotizaciones pendientes de revisión.", type: 'text' };
+    }
+
     return {
-      message: "Aquí tienes las últimas cotizaciones pendientes de aprobación.",
+      message: "Aquí están las cotizaciones más recientes que requieren tu aprobación.",
       type: 'cotizaciones_table',
       data: cotizaciones
     };
   }
 
   private async searchCars(keywords: string): Promise<IaResponse> {
-    const regex = new RegExp(keywords, 'i');
+    const safeKeywords = keywords.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+    const regex = new RegExp(safeKeywords, 'i');
+    
     const cars = await this.productModel.find({
-      $or: [{ marca: regex }, { modelo: regex }, { tipo: regex }],
+      $or: [{ marca: regex }, { modelo: regex }, { tipo: regex }, { color: regex }],
       disponible: true
     }).limit(10).exec();
 
     if (cars.length === 0) {
-      return { message: "No encontré vehículos con esas características en inventario.", type: 'text' };
+      return { message: `No encontré vehículos coincidentes con "${keywords}" en el inventario.`, type: 'text' };
     }
 
     return {
-      message: `Encontré ${cars.length} vehículos disponibles que coinciden con "${keywords}".`,
+      message: `He encontrado ${cars.length} coincidencias en inventario.`,
       type: 'products_grid',
       data: cars
     };
   }
 
   private async getClients(): Promise<IaResponse> {
-    const clients = await this.userModel.find({ rol: 'CLIENTE' }).limit(10).exec();
+    const clients = await this.userModel.find({ rol: 'CLIENTE' })
+      .select('nombre email telefono')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .exec();
+      
     return {
-      message: "Lista de clientes registrados recientemente.",
+      message: "Estos son tus clientes registrados más recientes.",
       type: 'clients_list',
       data: clients
     };
   }
 
   private async getSalesAdvice(prompt: string): Promise<IaResponse> {
-    const txt = await this.callOllama("Eres un mentor de ventas agresivo pero ético.", prompt);
+    const txt = await this.callOllama(
+      "Eres un mentor de ventas experto. Responde en español, sé breve, directo y motivador.", 
+      prompt
+    );
     return { message: txt, type: 'text' };
   }
 
   private async chatWithAi(prompt: string): Promise<IaResponse> {
-    const txt = await this.callOllama("Eres el asistente del CRM SmartAssistant.", prompt);
+    const txt = await this.callOllama(
+      "Eres el asistente del CRM SmartAssistant. Responde en español, sé amable, profesional y muy breve (máximo 2 frases).", 
+      prompt
+    );
     return { message: txt, type: 'text' };
   }
 
   private async callOllama(system: string, user: string, jsonMode: boolean = false): Promise<string> {
     try {
       const payload: any = {
-        model: this.model, 
+        model: this.model,
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user }
@@ -234,7 +285,7 @@ export class IamodelService {
         stream: false,
         options: {
           num_predict: 150,
-          temperature: 0.1, 
+          temperature: 0.1,
         }
       };
       if (jsonMode) payload.format = 'json';
@@ -242,14 +293,28 @@ export class IamodelService {
       const { data } = await firstValueFrom(
         this.httpService.post(`${this.ollamaHost}/api/chat`, payload, { timeout: 120000 })
       );
+      
       return data.message.content;
     } catch (e) {
       this.logger.error(`Error Ollama: ${e.message}`);
-      
       if (e.response) {
-        this.logger.error(`Respuesta del servidor (${e.response.status}): ${JSON.stringify(e.response.data)}`);
+        this.logger.error(`Status: ${e.response.status} | Data: ${JSON.stringify(e.response.data)}`);
       }
-      return "Lo siento, mi cerebro de IA se está configurando. Intenta de nuevo en unos minutos.";
+      return "Lo siento, mi conexión neuronal es inestable. ¿Podrías intentarlo de nuevo?";
+    }
+  }
+
+  private extractJson(text: string): any {
+    try {
+      return JSON.parse(text);
+    } catch {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          return JSON.parse(match[0]);
+        } catch { return null; }
+      }
+      return null;
     }
   }
 }
