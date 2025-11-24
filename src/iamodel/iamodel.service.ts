@@ -232,6 +232,10 @@ export class IamodelService {
           { role: 'user', content: user }
         ],
         stream: false,
+        options: {
+          num_predict: 150,
+          temperature: 0.1, 
+        }
       };
       if (jsonMode) payload.format = 'json';
 
