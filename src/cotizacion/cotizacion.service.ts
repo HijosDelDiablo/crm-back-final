@@ -109,6 +109,14 @@ export class CotizacionService {
       .populate('coche', 'marca modelo ano precioBase')
       .exec();
   }
+  async getCotizacionesAll(): Promise<CotizacionDocument[]> {
+    return this.cotizacionModel
+      .find({})
+      .populate('cliente', 'nombre email telefono fotoPerfil')
+      .populate('vendedor', 'nombre email telefono fotoPerfil')
+      .populate('coche', 'marca modelo ano precioBase descripcion condicion tipo transmision motor imagenUrl')
+      .exec();
+  }
   
   async updateCotizacionStatus(
     id: string,

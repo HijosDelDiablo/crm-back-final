@@ -44,6 +44,13 @@ export class CotizacionController {
   getCotizacionesPendientes() {
     return this.cotizacionService.getCotizacionesPendientes();
   }
+
+  @Get('all')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  getCotizaciones() {
+    return this.cotizacionService.getCotizacionesAll();
+  }
   
   @Patch(':id/status')
   @UseGuards(RolesGuard)
