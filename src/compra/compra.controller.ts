@@ -47,6 +47,20 @@ export class CompraController {
     return this.compraService.getComprasPendientes();
   }
 
+  @Get('en-revision')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  getComprasEnRevision() {
+    return this.compraService.getComprasEnRevision();
+  }
+
+  @Get('aprobadas')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  getComprasAprobadas() {
+    return this.compraService.getComprasAprobadas();
+  }
+
   @Patch(':id/evaluar')
   @UseGuards(RolesGuard)
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
