@@ -380,7 +380,7 @@ export class AuthService {
     const excludeCredentials = userPasskeys.map(passkey => ({
       type: 'public-key' as const,
       id: Buffer.from(passkey.credentialID, 'base64url'),
-      transports: passkey.transports as any[],
+      transports: this.convertTransports(passkey.transports),
     }));
 
     const options = await generateRegistrationOptions({
@@ -420,21 +420,21 @@ export class AuthService {
         expectedChallenge: usuario.currentChallenge,
         expectedOrigin: this.origin,
         expectedRPID: this.rpID,
+        requireUserVerification: false,
       });
     } catch (error) {
       this.logger.error('Passkey verification failed', error);
-      throw new BadRequestException('Verificación de Passkey fallida');
+      throw new BadRequestException(`Verificación de Passkey fallida: ${error.message}`);
     }
 
     if (verification.verified && verification.registrationInfo) {
-      const { credentialPublicKey, credentialID, counter } =
-        verification.registrationInfo;
+      const { credentialPublicKey, credentialID, counter } = verification.registrationInfo;
 
       const newPasskey = {
-        credentialID: Buffer.from(credentialID as any).toString('base64url'),
-        credentialPublicKey: Buffer.from(credentialPublicKey as any).toString('base64url'),
+        credentialID: Buffer.from(credentialID).toString('base64url'),
+        credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
         counter,
-        transports: body?.response?.transports,
+        transports: body?.response?.transports || ['internal'],
       };
 
       if (!usuario.passkeys) usuario.passkeys = [];
@@ -453,21 +453,26 @@ export class AuthService {
     const user = await this.userModel.findOne({ email }).select('+currentChallenge');
     if (!user) throw new NotFoundException('Usuario no encontrado.');
 
-    if (!user.passkeys)
-      throw new UnauthorizedException('Este usuario no tiene passkeys.');
+    if (!user.passkeys || user.passkeys.length === 0) {
+      throw new UnauthorizedException('Este usuario no tiene passkeys registradas.');
+    }
 
     if (!user.currentChallenge) {
       throw new BadRequestException('No hay un desafío activo. Por favor, genera nuevas opciones de autenticación.');
     }
 
     const passkey = user.passkeys.find(key => key.credentialID === body.id);
-    if (!passkey) throw new UnauthorizedException('Passkey no conocida para este usuario.');
+    if (!passkey) {
+      throw new UnauthorizedException('Passkey no reconocida para este usuario.');
+    }
 
     let verification;
 
     try {
       const publicKey = Buffer.from(passkey.credentialPublicKey, 'base64url');
       const credentialID = Buffer.from(passkey.credentialID, 'base64url');
+
+      const transports = this.convertTransports(passkey.transports);
 
       verification = await verifyAuthenticationResponse({
         response: body,
@@ -478,18 +483,23 @@ export class AuthService {
           credentialID,
           credentialPublicKey: publicKey,
           counter: passkey.counter,
+          transports: transports,
         },
+        requireUserVerification: false,
       });
     } catch (error) {
-      this.logger.error(error);
-      throw new UnauthorizedException('Fallo en verificación WebAuthn');
+      this.logger.error('Error en verificación WebAuthn:', error);
+      throw new UnauthorizedException(`Fallo en verificación WebAuthn: ${error.message}`);
     }
 
     if (verification.verified) {
       const { authenticationInfo } = verification;
 
-      passkey.counter = authenticationInfo.newCounter;
-      user.markModified('passkeys');
+      const passkeyIndex = user.passkeys.findIndex(key => key.credentialID === body.id);
+      if (passkeyIndex !== -1) {
+        user.passkeys[passkeyIndex].counter = authenticationInfo.newCounter;
+      }
+
       user.currentChallenge = undefined;
       await user.save();
 
@@ -497,6 +507,26 @@ export class AuthService {
     }
 
     throw new UnauthorizedException('Verificación fallida');
+  }
+
+  private convertTransports(transports: string[] | undefined): AuthenticatorTransport[] {
+    if (!transports) {
+      return ['internal'];
+    }
+
+    return transports.map(transport => {
+      switch (transport) {
+        case 'usb':
+          return 'usb';
+        case 'nfc':
+          return 'nfc';
+        case 'ble':
+          return 'ble';
+        case 'internal':
+        default:
+          return 'internal';
+      }
+    }) as AuthenticatorTransport[];
   }
 
   async generatePasskeyLoginOptions(email: string) {
