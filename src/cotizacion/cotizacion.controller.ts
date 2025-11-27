@@ -1,6 +1,6 @@
 import { Controller, Post, Body, UseGuards, Get, Patch, Param } from '@nestjs/common';
 import { CotizacionService } from './cotizacion.service';
-import { CreateCotizacionDto, UpdateCotizacionStatusDto } from './dto/cotizacion.dto';
+import { CreateCotizacionDto, UpdateCotizacionStatusDto, UpdateNotasVendedorDto } from './dto/cotizacion.dto';
 import { VendedorCreateCotizacionDto } from './dto/vendedor-cotizacion.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -65,5 +65,15 @@ export class CotizacionController {
       user,
       dto.status as 'Aprobada' | 'Rechazada'
     );
+  }
+
+  @Patch(':id/notas')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  updateNotas(
+    @Param('id') id: string,
+    @Body() dto: UpdateNotasVendedorDto,
+  ) {
+    return this.cotizacionService.updateNotasVendedor(id, dto.notasVendedor || '');
   }
 }

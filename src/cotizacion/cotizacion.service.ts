@@ -118,6 +118,20 @@ export class CotizacionService {
       .exec();
   }
   
+  async updateNotasVendedor(
+    id: string,
+    notasVendedor: string,
+  ): Promise<CotizacionDocument> {
+    const cotizacion = await this.cotizacionModel.findById(id);
+    
+    if (!cotizacion) {
+      throw new NotFoundException('Cotización no encontrada.');
+    }
+
+    cotizacion.notasVendedor = notasVendedor;
+    return await cotizacion.save();
+  }
+
   async updateCotizacionStatus(
     id: string,
     vendedor: ValidatedUser, 

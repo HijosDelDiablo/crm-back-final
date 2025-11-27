@@ -1,4 +1,4 @@
-import { IsMongoId, IsNumber, IsPositive, Min, Max, IsString, IsEnum, IsNotEmpty } from 'class-validator';
+import { IsMongoId, IsNumber, IsPositive, Min, Max, IsString, IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateCotizacionDto {
   @IsMongoId()
@@ -19,4 +19,10 @@ export class UpdateCotizacionStatusDto {
   @IsNotEmpty()
   @IsEnum(['Aprobada', 'Rechazada'])
   status: string;
+}
+
+export class UpdateNotasVendedorDto {
+  @IsString()
+  @IsOptional()
+  notasVendedor?: string;
 }

@@ -39,6 +39,9 @@ export class Cotizacion {
 
   @Prop({ type: String, required: true, default: 'Pendiente' })
   status: string;
+
+  @Prop({ type: String, default: '' })
+  notasVendedor?: string;
 }
 
 export const CotizacionSchema = SchemaFactory.createForClass(Cotizacion);
