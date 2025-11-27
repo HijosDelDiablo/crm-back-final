@@ -109,6 +109,14 @@ export class CotizacionService {
       .populate('coche', 'marca modelo ano precioBase')
       .exec();
   }
+
+  async getCotizacionesAprovadas(): Promise<CotizacionDocument[]> {
+    return this.cotizacionModel
+      .find({ status: 'Aprobada' })
+      .populate('cliente', 'nombre email telefono')
+      .populate('coche', 'marca modelo ano precioBase')
+      .exec();
+  }
   
   async updateCotizacionStatus(
     id: string,
