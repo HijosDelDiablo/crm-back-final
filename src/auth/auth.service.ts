@@ -20,10 +20,18 @@ import { ConfigService } from '@nestjs/config';
 import { OneSignalService } from '../notifications/onesignal.service';
 import { compare, hash } from 'bcrypt';
 import { Rol } from './enums/rol.enum';
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from '@simplewebauthn/server';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly rpID = 'crm-back-final-production.up.railway.app';
+  private readonly origin = 'https://crm-back-final-production.up.railway.app';
 
   constructor(
     private readonly userService: UserService,
@@ -205,31 +213,6 @@ export class AuthService {
     return { message: 'Usuario eliminado.' };
   }
 
-  private async _generarTokenAcceso(user: ValidatedUser) {
-    const id = String(user._id);
-
-    const payload = {
-      email: user.email,
-      sub: id,
-      rol: user.rol,
-    };
-
-    const expiresConfig = this.configService.get<string>('JWT_EXPIRATION', '3600');
-    const expiresIn: number = Number(expiresConfig);
-
-    const accessToken = this.jwtService.sign(payload, { expiresIn });
-
-    return {
-      accessToken,
-      user: {
-        email: user.email,
-        nombre: user.nombre,
-        rol: user.rol,
-        _id: id,
-      },
-    };
-  }
-
   async validateUser(dto: LoginAuthDto): Promise<ValidatedUser> {
     const user = await this.userService.findByEmailWithPassword(dto.email);
 
@@ -266,9 +249,6 @@ export class AuthService {
     });
   }
 
-  // ===========================
-  //   RECUPERAR CONTRASEÑA
-  // ===========================
   async requestPasswordReset(email: string): Promise<{ message: string }> {
     const user = await this.userService.findByEmail(email);
 
@@ -283,11 +263,9 @@ export class AuthService {
 
     try {
       await this._enviarEmailRecuperacion(user.email, resetToken, user.nombre);
-      return { message: 'Si el email existe, se enviarán instrucciones.' };
-    } catch (error) {
-      this.logger.error('Error enviando email de recuperación:', error);
-      return { message: 'Si el email existe, se enviarán instrucciones.' };
-    }
+    } catch {}
+
+    return { message: 'Si el email existe, se enviarán instrucciones.' };
   }
 
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
@@ -307,7 +285,7 @@ export class AuthService {
       }
 
       return { message: 'Contraseña restablecida exitosamente.' };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Token inválido o expirado.');
     }
   }
@@ -317,91 +295,228 @@ export class AuthService {
     resetToken: string,
     nombre: string,
   ): Promise<void> {
-    try {
-      const deepLink = `smartassistant://reset-password?token=${resetToken}`;
+    const deepLink = `smartassistant://reset-password?token=${resetToken}`;
 
-      const backendUrl = this.configService.get<string>(
-        'BACKEND_URL',
-        'https://crm-back-final-production.up.railway.app',
-      );
+    const backendUrl = this.configService.get<string>(
+      'BACKEND_URL',
+      'https://crm-back-final-production.up.railway.app',
+    );
 
-      const webFallbackLink = `${backendUrl}/auth/reset-password-page?token=${resetToken}`;
+    const webFallbackLink = `${backendUrl}/auth/reset-password-page?token=${resetToken}`;
 
-      const emailSubject = 'Recuperación de Contraseña - SmartAssistant CRM';
-      const emailBody = `
+    const emailSubject = 'Recuperación de Contraseña - SmartAssistant CRM';
+    const emailBody = `
       <!DOCTYPE html>
       <html>
-      <head>
-        <style>
-          body { font-family: Arial; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: auto; padding: 20px; }
-          .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-          .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; }
-          .warning { background: #fef3c7; padding: 15px; border-radius: 6px; margin-top: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>SmartAssistant CRM</h1>
-            <p>Recuperación de Contraseña</p>
-          </div>
-
-          <div class="content">
-            <h2>Hola ${nombre},</h2>
-            <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
-
-            <p><strong>Opción 1 (Aplicación Móvil):</strong></p>
-            <p><a href="${deepLink}" class="button">Restablecer Contraseña</a></p>
-
-            <div class="warning">
-              <strong>Opción 2: Desde Navegador Web</strong>
-              <p>Si la app no abre el enlace, usa este:</p>
-              <p style="word-break: break-all;">${webFallbackLink}</p>
-            </div>
-
-            <p>Este enlace expirará en 1 hora.</p>
-          </div>
-        </div>
+      <body style="font-family: Arial;">
+        <h2>Hola ${nombre}</h2>
+        <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
+        <a href="${deepLink}">Restablecer Contraseña (App)</a>
+        <p>Si la app no abre el enlace, usa este:</p>
+        <p>${webFallbackLink}</p>
       </body>
       </html>
     `;
 
-      await this.oneSignalService.enviarEmailPersonalizado(
-        email,
-        emailSubject,
-        emailBody,
-      );
-    } catch (error) {
-      this.logger.error('Error en _enviarEmailRecuperacion:', error);
-      throw new InternalServerErrorException('No se pudo enviar el email.');
-    }
+    await this.oneSignalService.enviarEmailPersonalizado(
+      email,
+      emailSubject,
+      emailBody,
+    );
   }
 
   private async _enviarEmailConfirmacionCambioPassword(
     email: string,
     nombre: string,
   ): Promise<void> {
-    try {
-      const emailSubject = 'Tu contraseña ha sido actualizada';
-      const emailBody = `
+    const emailSubject = 'Tu contraseña ha sido actualizada';
+    const emailBody = `
       <!DOCTYPE html>
       <html>
-      <body style="font-family: Arial; line-height: 1.6;">
-        <h2>Hola ${nombre},</h2>
+      <body style="font-family: Arial;">
+        <h2>Hola ${nombre}</h2>
         <p>Tu contraseña fue cambiada exitosamente.</p>
-        <p>Si no fuiste tú, contacta soporte de inmediato.</p>
       </body>
       </html>`;
 
-      await this.oneSignalService.enviarEmailPersonalizado(
-        email,
-        emailSubject,
-        emailBody,
-      );
-    } catch (error) {
-      this.logger.error('Error enviando email de confirmación:', error);
+    await this.oneSignalService.enviarEmailPersonalizado(
+      email,
+      emailSubject,
+      emailBody,
+    );
+  }
+
+  private async _generarTokenAcceso(user: ValidatedUser) {
+    const id = String(user._id);
+
+    const payload = {
+      email: user.email,
+      sub: id,
+      rol: user.rol,
+    };
+
+    const expiresConfig = this.configService.get<string>('JWT_EXPIRATION', '3600');
+    const expiresIn: number = Number(expiresConfig);
+
+    const accessToken = this.jwtService.sign(payload, { expiresIn });
+
+    return {
+      accessToken,
+      user: {
+        email: user.email,
+        nombre: user.nombre,
+        rol: user.rol,
+        _id: id,
+      },
+    };
+  }
+
+  async generatePasskeyRegistrationOptions(user: ValidatedUser) {
+    const usuario = await this.userModel.findById(user._id);
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    const userPasskeys = usuario.passkeys || [];
+
+    const excludeCredentials = userPasskeys.map(passkey => ({
+      type: 'public-key' as const,
+      id: Buffer.from(passkey.credentialID, 'base64url'),
+      transports: passkey.transports as any[],
+    }));
+
+    const options = await generateRegistrationOptions({
+      rpName: 'SmartAssistant CRM',
+      rpID: this.rpID,
+      userID: user._id,
+      userName: user.email,
+      attestationType: 'none',
+      excludeCredentials,
+      authenticatorSelection: {
+        residentKey: 'preferred',
+        userVerification: 'preferred',
+      },
+    });
+
+    usuario.currentChallenge = options.challenge;
+    await usuario.save();
+
+    return options;
+  }
+
+  async verifyPasskeyRegistration(user: ValidatedUser, body: any) {
+    const usuario = await this.userModel
+      .findById(user._id)
+      .select('+currentChallenge');
+
+    if (!usuario) throw new NotFoundException('Usuario no encontrado.');
+
+    if (!usuario.currentChallenge) {
+      throw new BadRequestException('No hay un desafío activo. Por favor, genera nuevas opciones de registro.');
     }
+
+    let verification;
+    try {
+      verification = await verifyRegistrationResponse({
+        response: body,
+        expectedChallenge: usuario.currentChallenge,
+        expectedOrigin: this.origin,
+        expectedRPID: this.rpID,
+      });
+    } catch (error) {
+      this.logger.error('Passkey verification failed', error);
+      throw new BadRequestException('Verificación de Passkey fallida');
+    }
+
+    if (verification.verified && verification.registrationInfo) {
+      const { credentialPublicKey, credentialID, counter } =
+        verification.registrationInfo;
+
+      const newPasskey = {
+        credentialID: Buffer.from(credentialID as any).toString('base64url'),
+        credentialPublicKey: Buffer.from(credentialPublicKey as any).toString('base64url'),
+        counter,
+        transports: body?.response?.transports,
+      };
+
+      if (!usuario.passkeys) usuario.passkeys = [];
+      usuario.passkeys.push(newPasskey);
+
+      usuario.currentChallenge = undefined;
+      await usuario.save();
+
+      return { verified: true };
+    }
+
+    throw new BadRequestException('No se pudo verificar la passkey');
+  }
+
+  async verifyPasskeyLogin(email: string, body: any) {
+    const user = await this.userModel.findOne({ email }).select('+currentChallenge');
+    if (!user) throw new NotFoundException('Usuario no encontrado.');
+
+    if (!user.passkeys)
+      throw new UnauthorizedException('Este usuario no tiene passkeys.');
+
+    if (!user.currentChallenge) {
+      throw new BadRequestException('No hay un desafío activo. Por favor, genera nuevas opciones de autenticación.');
+    }
+
+    const passkey = user.passkeys.find(key => key.credentialID === body.id);
+    if (!passkey) throw new UnauthorizedException('Passkey no conocida para este usuario.');
+
+    let verification;
+
+    try {
+      const publicKey = Buffer.from(passkey.credentialPublicKey, 'base64url');
+      const credentialID = Buffer.from(passkey.credentialID, 'base64url');
+
+      verification = await verifyAuthenticationResponse({
+        response: body,
+        expectedChallenge: user.currentChallenge,
+        expectedOrigin: this.origin,
+        expectedRPID: this.rpID,
+        authenticator: {
+          credentialID,
+          credentialPublicKey: publicKey,
+          counter: passkey.counter,
+        },
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw new UnauthorizedException('Fallo en verificación WebAuthn');
+    }
+
+    if (verification.verified) {
+      const { authenticationInfo } = verification;
+
+      passkey.counter = authenticationInfo.newCounter;
+      user.markModified('passkeys');
+      user.currentChallenge = undefined;
+      await user.save();
+
+      return this._generarTokenAcceso(user.toObject() as ValidatedUser);
+    }
+
+    throw new UnauthorizedException('Verificación fallida');
+  }
+
+  async generatePasskeyLoginOptions(email: string) {
+    const user = await this.userService.findByEmail(email);
+    if (!user) throw new NotFoundException('Usuario no encontrado.');
+
+    const allowCredentials = (user.passkeys || []).map(key => ({
+      type: 'public-key' as const,
+      id: Buffer.from(key.credentialID, 'base64url'),
+      transports: key.transports as any[],
+    }));
+
+    const options = await generateAuthenticationOptions({
+      rpID: this.rpID,
+      allowCredentials,
+    });
+
+    user.currentChallenge = options.challenge;
+    await user.save();
+
+    return options;
   }
 }

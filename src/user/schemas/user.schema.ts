@@ -2,6 +2,22 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { Rol } from '../../auth/enums/rol.enum';
 
+
+export class PasskeyCredential {
+  @Prop()
+  credentialID: string;
+
+  @Prop()
+  credentialPublicKey: string;
+
+  @Prop()
+  counter: number;
+
+  @Prop([String])
+  transports?: string[];
+}
+
+
 @Schema({ timestamps: true })
 export class User extends Document {
   @Prop({ unique: true, required: true, trim: true })
@@ -37,7 +53,6 @@ export class User extends Document {
   @Prop({ required: false })
   oneSignalPlayerId?: string;
 
-  // --- NUEVOS CAMPOS AÑADIDOS ---
   @Prop({ default: null })
   fotoPerfil?: string;
 
@@ -49,6 +64,12 @@ export class User extends Document {
 
   @Prop({ default: true })
   activo: boolean;
+
+  @Prop({ type: Array, default: [] })
+  passkeys: PasskeyCredential[];
+  
+  @Prop({ type: String, select: false })
+  currentChallenge?: string;
 }
 
 export type UserDocument = User & Document;
