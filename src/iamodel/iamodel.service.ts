@@ -66,8 +66,8 @@ export class IamodelService {
           return this.getExpenses(intent.params?.status);
         case 'get_profile':
           return this.getUserProfile(userId);
-        
         case 'company_info':
+          return this.getCompanyInfo();
         case 'chat':
         default:
           return this.chatWithAi(prompt, userId);
@@ -112,13 +112,36 @@ export class IamodelService {
     if (cleanPrompt.match(/cliente|comprador|usuario/)) return { action: 'get_clients' };
     if (cleanPrompt.match(/quien soy|mi perfil|mi cuenta/)) return { action: 'get_profile' };
 
-    if (cleanPrompt.match(/donde (estan|están)|ubicacion|direccion|horario|telefono|contacto|soporte|correo|empresa/)) {
+    if (cleanPrompt.match(/(dónde|donde|ubicaci[oó]n|direcci[oó]n|local|sucursal|horario|tel[ée]fono|contacto|correo|email|soporte|empresa|oficina|lugar)/)) {
         return { action: 'company_info' };
     }
 
     if (cleanPrompt.match(/^(hola|buenos dias|buenas tardes|que tal|saludos|hey)$/)) return { action: 'chat' };
 
     return { action: 'chat' }; 
+  }
+
+  private async getCompanyInfo(): Promise<IaResponse> {
+    const companyInfo = `
+**Autobots - CRM Automotriz del Bajío**
+
+**Ubicación:** 
+Blvd. Adolfo López Mateos 123, León, Guanajuato
+
+**Horario:**
+Lunes a Viernes: 9:00 AM - 7:00 PM
+Sábados: 9:00 AM - 2:00 PM
+
+**Contacto de Soporte:**
+soporte@autobots.mx (Extensión 505)
+
+¿Necesitas ayuda con algo específico?
+    `;
+
+    return { 
+      message: companyInfo, 
+      type: 'text' 
+    };
   }
 
   private async searchCars(keywords: string): Promise<IaResponse> {
