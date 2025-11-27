@@ -12,14 +12,16 @@ import { Gasto, GastoDocument } from '../gastos/schemas/gasto.schema';
 import { IaResponse } from './schemas/ia-response.interface';
 
 const COMPANY_CONTEXT = `
-  Nombre: CRM Automotriz del Bajío (Autobots).
-  Misión: Facilitar la compra-venta de autos con confianza y rapidez.
-  Ubicación: Blvd. Adolfo López Mateos 123, León, Gto, México.
-  Horario: Lunes a Viernes 9am - 7pm, Sábados 9am - 2pm.
-  Soporte Técnico: soporte@autobots-crm.mx | Ext: 505.
-  Reglas de Negocio: 
-  - Los vendedores solo pueden ver sus propios leads.
-  - Las cotizaciones requieren aprobación del gerente si el descuento supera el 5%.
+DATOS DE LA EMPRESA:
+- Nombre: Autobots (CRM Automotriz del Bajío).
+- Ubicación: Blvd. Adolfo López Mateos 123, León, Gto.
+- Horario: L-V 9am-7pm, Sáb 9am-2pm.
+- Contacto Soporte: qatesthijosdeldiablo@gmail.com (Ext 505).
+
+REGLAS DE PERSONALIDAD:
+- Tú eres "SmartAssistant", un colega útil y eficaz. NO eres un robot aburrido.
+- Tu tono debe ser: Profesional pero casual, breve y directo.
+- Si te preguntan algo que está en "DATOS DE LA EMPRESA", responde directamente con el dato.
 `;
 
 @Injectable()
@@ -43,7 +45,7 @@ export class IamodelService {
 
   async processQuery(prompt: string, userId: string): Promise<IaResponse> {
     const intent = await this.classifyIntentRobust(prompt);
-    this.logger.log(`🧠 Acción: ${intent.action} | Params: ${JSON.stringify(intent.params)} | User: ${userId}`);
+    this.logger.log(`🧠 Intent: ${intent.action} | User: ${userId}`);
 
     try {
       switch (intent.action) {
@@ -61,23 +63,18 @@ export class IamodelService {
           return this.getSalesReport();
         case 'get_expenses':
           return this.getExpenses(intent.params?.status);
-        
         case 'get_profile':
           return this.getUserProfile(userId);
         
         case 'company_info':
-          return this.chatWithAi(prompt, userId, true); 
-
-        case 'sales_advice':
-          return this.getSalesAdvice(prompt);
-
+        case 'chat':
         default:
           return this.chatWithAi(prompt, userId);
       }
     } catch (error) {
-      this.logger.error(`Error procesando acción ${intent.action}: ${error.message}`);
+      this.logger.error(`Error en action ${intent.action}: ${error.message}`);
       return { 
-        message: "Ocurrió un error procesando tu solicitud. Por favor intenta reformular la pregunta.", 
+        message: "Tuve un pequeño lapso de memoria. ¿Me lo repites?", 
         type: 'text' 
       };
     }
@@ -86,99 +83,69 @@ export class IamodelService {
   private async classifyIntentRobust(userPrompt: string): Promise<{ action: string; params?: any }> {
     const cleanPrompt = userPrompt.toLowerCase().trim();
 
-    const systemPrompt = `
-      Eres el router de una API. Clasifica el input del usuario en un JSON.
-      Input: "${userPrompt}"
-      
-      Categorías Disponibles:
-      - Tareas: "get_my_tasks"
-      - Ventas/Reportes: "get_sales_report"
-      - Gastos: "get_expenses"
-      - Cotizaciones: "get_pending_quotes"
-      - Buscar Auto (Solo si menciona marca/modelo): "search_cars" -> params: { "keywords": "..." }
-      - Clientes: "get_clients"
-      - Perfil Usuario: "get_profile"
-      - Info Empresa: "company_info"
-      - Consejo Ventas: "sales_advice"
-      - Charla/Saludo/Otros: "chat"
-
-      Ejemplos válidos:
-      - "Hola": {"action": "chat"}
-      - "Busco un Mazda": {"action": "search_cars", "params": {"keywords": "mazda"}}
-      - "Mis tareas": {"action": "get_my_tasks"}
-      
-      Responde SOLO el JSON.
-    `;
-
-    try {
-      const aiResponse = await this.callOllama(systemPrompt, userPrompt, true);
-      const parsed = this.extractJson(aiResponse);
-      
-      if (parsed && parsed.action === 'search_cars') {
-         const key = parsed.params?.keywords || '';
-         if (key && !cleanPrompt.includes(key.toLowerCase())) {
-             this.logger.warn(`⚠️ Alucinación detectada (Keyword: ${key}). Redirigiendo a Chat.`);
-             return { action: 'chat' };
-         }
-      }
-
-      if (parsed && parsed.action) return parsed;
-    } catch (e) {
-      this.logger.warn(`Clasificación IA falló, usando Regex. Error: ${e.message}`);
+    if (cleanPrompt.match(/^(si|sí|claro|ver|ver todos|muestralos|dale|simon)$/)) {
+        return { action: 'get_products' };
     }
 
-    if (cleanPrompt.match(/quien soy|mi nombre|mi rol|mis datos/)) return { action: 'get_profile' };
-    if (cleanPrompt.match(/donde estan|ubicacion|horario|telefono|soporte|empresa|mision/)) return { action: 'company_info' };
-    if (cleanPrompt.match(/tarea|agenda|pendiente|hacer/)) return { action: 'get_my_tasks' };
-    if (cleanPrompt.match(/venta|reporte|ganancia|mes|vendido/)) return { action: 'get_sales_report' };
+    if (cleanPrompt.match(/donde (estan|están)|ubicacion|direccion|horario|telefono|contacto|soporte|correo|empresa|mision/)) {
+        return { action: 'company_info' };
+    }
+
+    if (cleanPrompt.match(/tarea|agenda|pendiente|hacer|recordatorio/)) return { action: 'get_my_tasks' };
+    if (cleanPrompt.match(/venta|reporte|ganancia|mes|vendido|cuanto vendi/)) return { action: 'get_sales_report' };
     if (cleanPrompt.match(/gasto|pago|luz|agua|renta/)) return { action: 'get_expenses' };
-    if (cleanPrompt.match(/cotiza|aprobacion/)) return { action: 'get_pending_quotes' };
-    if (cleanPrompt.match(/cliente/)) return { action: 'get_clients' };
-    
-    if (cleanPrompt.match(/coche|auto|carro|camioneta|suv|sedan|honda|mazda|toyota|nissan|chevrolet|ford|audi|bmw|mercedes|volkswagen/)) {
-       return { action: 'search_cars', params: { keywords: userPrompt } };
+    if (cleanPrompt.match(/cotiza|aprobacion|autoriza/)) return { action: 'get_pending_quotes' };
+    if (cleanPrompt.match(/cliente|comprador/)) return { action: 'get_clients' };
+    if (cleanPrompt.match(/quien soy|mi nombre|mi perfil/)) return { action: 'get_profile' };
+
+    if (cleanPrompt.match(/tienes|busco|quiero|necesito|interesa|precio/)) {
+        if (cleanPrompt.match(/coche|auto|carro|camioneta|suv|honda|mazda|toyota|nissan|chevrolet|ford|vw|volkswagen|audi|bmw|kia|seat/)) {
+             return { action: 'search_cars', params: { keywords: userPrompt } };
+        }
     }
-    
-    if (cleanPrompt.match(/consejo|tip|ayuda vender/)) return { action: 'sales_advice' };
+    if (cleanPrompt.match(/^(mazda|honda|toyota|nissan|ford|chevrolet|vw|audi|bmw|kia)$/)) {
+        return { action: 'search_cars', params: { keywords: userPrompt } };
+    }
 
-    return { action: 'chat' };
+    if (cleanPrompt.match(/hola|buenos dias|buenas tardes|que tal|ssludo|saludo/)) return { action: 'chat' };
+
+    return { action: 'chat' }; 
   }
 
-  private async getUserProfile(userId: string): Promise<IaResponse> {
-    const user = await this.userModel.findById(userId).select('-password');
-    if (!user) return { message: "No pude encontrar tu información en la base de datos.", type: 'text' };
-
-    return {
-      message: `¡Hola ${user.nombre}! Estás registrado como **${user.rol}**. Tu correo es ${user.email}.`,
-      type: 'text'
-    };
-  }
-
-  private async chatWithAi(prompt: string, userId: string, forceCompanyContext = false): Promise<IaResponse> {
+  private async chatWithAi(prompt: string, userId: string): Promise<IaResponse> {
     const user = await this.userModel.findById(userId).select('nombre rol');
-    const userName = user ? user.nombre : 'Usuario';
-    const userRole = user ? user.rol : 'Vendedor';
+    const userName = user ? user.nombre.split(' ')[0] : 'Compañero'; 
 
-    const contextPrompt = `
-      Eres "SmartAssistant", el asistente virtual inteligente de la empresa.
-      
-      CONTEXTO DE LA EMPRESA:
+    const systemPrompt = `
+      Eres SmartAssistant, parte del equipo de Autobots.
+      Tu usuario es: ${userName} (${user?.rol || 'Vendedor'}).
+
       ${COMPANY_CONTEXT}
 
-      CONTEXTO DEL USUARIO ACTUAL:
-      - Nombre: ${userName}
-      - Rol: ${userRole}
-
-      INSTRUCCIONES:
-      1. Responde en español, tono profesional pero amigable.
-      2. Si te preguntan sobre la empresa, usa la información de "CONTEXTO DE LA EMPRESA".
-      3. Si te preguntan quién eres, preséntate como SmartAssistant.
-      4. Sé conciso (máximo 3 oraciones).
-      5. Si no sabes la respuesta, di que pueden contactar a soporte.
+      INSTRUCCIONES CLAVE:
+      1. **NO te presentes** en cada mensaje. Sé natural.
+      2. Si saludan ("Hola", "Ssludo"), responde corto: "¡Hola ${userName}! ¿En qué te ayudo?".
+      3. Si preguntan ubicación u horario, COPIA la info del contexto.
+      4. Si el mensaje es corto ("ok", "gracias"), cierra con una frase amable corta.
+      5. Nunca digas "Como modelo de lenguaje".
+      6. Habla español de México, profesional pero relajado.
     `;
 
-    const response = await this.callOllama(contextPrompt, prompt);
+    const response = await this.callOllama(systemPrompt, prompt);
     return { message: response, type: 'text' };
+  }
+
+  private async getPendingQuotes(): Promise<IaResponse> {
+    const cotizaciones = await this.cotizacionModel.find({ status: 'Pendiente' })
+      .populate('cliente', 'nombre').populate('coche', 'marca modelo').limit(5);
+
+    if (!cotizaciones.length) return { message: "Estás al día. No hay cotizaciones pendientes.", type: 'text' };
+    return { message: "Estas cotizaciones esperan tu revisión:", type: 'cotizaciones_table', data: cotizaciones };
+  }
+
+  private async getClients(): Promise<IaResponse> {
+    const clients = await this.userModel.find({ rol: 'CLIENTE' }).limit(10);
+    return { message: "Listado de clientes recientes:", type: 'clients_list', data: clients };
   }
 
   private async getMyTasks(userId: string): Promise<IaResponse> {
@@ -190,9 +157,8 @@ export class IamodelService {
     if (!tasks.length) return { message: "¡Todo limpio! No tienes tareas pendientes.", type: 'text' };
 
     const clientName = (tasks[0].cliente as any)?.nombre || 'tu cliente';
-
     return {
-      message: `Tienes ${tasks.length} tareas pendientes. La prioridad es contactar a ${clientName}.`,
+      message: `Tienes ${tasks.length} tareas. Prioridad: Contactar a ${clientName}.`,
       type: 'tasks_list',
       data: tasks
     };
@@ -207,7 +173,7 @@ export class IamodelService {
     const data = stats[0] || { totalVendido: 0, count: 0, avgTicket: 0 };
     
     return {
-      message: `Reporte Mensual: ${data.count} ventas cerradas por un total de $${data.totalVendido.toLocaleString()}.`,
+      message: `Mes Actual: ${data.count} ventas ($${data.totalVendido.toLocaleString()}).`,
       type: 'kpi_dashboard',
       data: { period: 'Mes Actual', totalSales: data.totalVendido, salesCount: data.count, average: data.avgTicket }
     };
@@ -218,35 +184,32 @@ export class IamodelService {
      if (statusFilter) filter.estado = statusFilter;
      const gastos = await this.gastoModel.find(filter).sort({ fechaGasto: -1 }).limit(8);
      
-     if (!gastos.length) return { message: "No se encontraron gastos registrados.", type: 'text' };
+     if (!gastos.length) return { message: "No encontré gastos registrados.", type: 'text' };
      
      const total = gastos.reduce((acc, curr) => acc + curr.monto, 0);
      return {
-       message: `Visualizando gastos ${statusFilter || 'generales'}. Total en vista: $${total.toLocaleString()}.`,
+       message: `Gastos recientes (Total: $${total.toLocaleString()}):`,
        type: 'expenses_table',
        data: gastos
      };
   }
 
-  private async getPendingQuotes(): Promise<IaResponse> {
-    const cotizaciones = await this.cotizacionModel.find({ status: 'Pendiente' })
-      .populate('cliente', 'nombre').populate('coche', 'marca modelo').limit(5);
-
-    if (!cotizaciones.length) return { message: "Estás al día. No hay cotizaciones pendientes.", type: 'text' };
-
-    return { message: "Estas cotizaciones esperan tu revisión:", type: 'cotizaciones_table', data: cotizaciones };
+  private async getUserProfile(userId: string): Promise<IaResponse> {
+    const user = await this.userModel.findById(userId).select('-password');
+    if (!user) return { message: "No encuentro tus datos.", type: 'text' };
+    return {
+      message: `Perfil: **${user.nombre}** | Rol: ${user.rol} | Email: ${user.email}`,
+      type: 'text'
+    };
   }
 
   private async searchCars(keywords: string): Promise<IaResponse> {
     const safeKeywords = keywords.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
     const cleanKeys = safeKeywords
-        .replace(/busco|un|una|el|la|los|las|coche|carro|auto|camioneta|quiero|necesito|tienes|modelo|marca/gi, '')
+        .replace(/busco|un|una|el|la|coche|carro|auto|camioneta|quiero|necesito|tienes|modelo|marca|precio|de|interesa/gi, '')
         .trim();
     
-    if (cleanKeys.length < 2) {
-        return this.getProductsGeneral();
-    }
+    if (cleanKeys.length < 2) return this.getProductsGeneral();
 
     const regex = new RegExp(cleanKeys, 'i');
     const cars = await this.productModel.find({
@@ -256,38 +219,25 @@ export class IamodelService {
 
     if (!cars.length) {
         return { 
-            message: `No encontré vehículos específicos para "${cleanKeys}". ¿Te gustaría ver el inventario completo?`, 
+            message: `Mmm, no veo ningún "${cleanKeys}" disponible. 😅\n¿Quieres ver todo el inventario?`, 
             type: 'text' 
         };
     }
     return { message: `Encontré ${cars.length} coincidencias para "${cleanKeys}":`, type: 'products_grid', data: cars };
   }
 
-  private async getClients(): Promise<IaResponse> {
-    const clients = await this.userModel.find({ rol: 'CLIENTE' }).limit(10);
-    return { message: "Listado de clientes recientes:", type: 'clients_list', data: clients };
-  }
-
   private async getProductsGeneral(): Promise<IaResponse> {
     const products = await this.productModel.find({ disponible: true }).limit(20);
-    return { message: "Inventario general disponible:", type: 'products_grid', data: products };
+    return { message: "Aquí tienes todo el inventario disponible:", type: 'products_grid', data: products };
   }
 
-  private async getSalesAdvice(prompt: string): Promise<IaResponse> {
-    return {
-      message: await this.callOllama("Eres un coach de ventas agresivo pero ético. Dame un consejo breve.", prompt),
-      type: 'text'
-    };
-  }
-
-  private async callOllama(system: string, user: string, jsonMode: boolean = false, retries = 1): Promise<string> {
-    const payload: any = {
+  private async callOllama(system: string, user: string, retries = 1): Promise<string> {
+    const payload = {
       model: this.model,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
       stream: false,
-      options: { num_predict: 200, temperature: jsonMode ? 0.1 : 0.7 }
+      options: { num_predict: 150, temperature: 0.6 }
     };
-    if (jsonMode) payload.format = 'json';
 
     for (let i = 0; i <= retries; i++) {
       try {
@@ -296,28 +246,9 @@ export class IamodelService {
         );
         return data.message.content;
       } catch (e) {
-        this.logger.warn(`Intento ${i + 1} fallido con Ollama: ${e.message}`);
-        if (i === retries) {
-          if (jsonMode) return "{}";
-          return "Lo siento, mis sistemas neuronales están respondiendo lento. Intenta en un momento.";
-        }
+        if (i === retries) return "Estoy teniendo problemas de conexión. Inténtalo de nuevo.";
       }
     }
-    return "Error de comunicación con IA.";
-  }
-
-  private extractJson(text: string): any {
-    if (!text) return null;
-    try {
-      return JSON.parse(text);
-    } catch {
-      const match = text.match(/\{[\s\S]*\}/);
-      if (match) {
-        try {
-          return JSON.parse(match[0]);
-        } catch { return null; }
-      }
-      return null;
-    }
+    return "Error de servicio.";
   }
 }
