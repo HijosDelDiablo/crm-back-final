@@ -402,7 +402,7 @@ export class AuthService {
     return options;
   }
 
-  async verifyPasskeyRegistration(user: ValidatedUser, body: any) {
+ async verifyPasskeyRegistration(user: ValidatedUser, body: any) {
     const usuario = await this.userModel
       .findById(user._id)
       .select('+currentChallenge');
@@ -415,8 +415,20 @@ export class AuthService {
 
     let verification;
     try {
+      // El formato que viene del cliente Flutter/Android
+      const credential = body.credential || body;
+      
       verification = await verifyRegistrationResponse({
-        response: body,
+        response: {
+          id: credential.id,
+          rawId: credential.rawId,
+          type: credential.type,
+          response: {
+            clientDataJSON: credential.response.clientDataJSON,
+            attestationObject: credential.response.attestationObject,
+            transports: credential.response.transports,
+          },
+        },
         expectedChallenge: usuario.currentChallenge,
         expectedOrigin: this.origin,
         expectedRPID: this.rpID,
@@ -434,7 +446,7 @@ export class AuthService {
         credentialID: Buffer.from(credentialID).toString('base64url'),
         credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
         counter,
-        transports: body?.response?.transports || ['internal'],
+        transports: body?.credential?.response?.transports || body?.response?.transports || ['internal'],
       };
 
       if (!usuario.passkeys) usuario.passkeys = [];
@@ -461,7 +473,11 @@ export class AuthService {
       throw new BadRequestException('No hay un desafío activo. Por favor, genera nuevas opciones de autenticación.');
     }
 
-    const passkey = user.passkeys.find(key => key.credentialID === body.id);
+    // Extraer el credential del body
+    const credential = body.data?.credential || body.credential || body.data || body;
+    const credentialId = credential.id;
+
+    const passkey = user.passkeys.find(key => key.credentialID === credentialId);
     if (!passkey) {
       throw new UnauthorizedException('Passkey no reconocida para este usuario.');
     }
@@ -475,7 +491,17 @@ export class AuthService {
       const transports = this.convertTransports(passkey.transports);
 
       verification = await verifyAuthenticationResponse({
-        response: body,
+        response: {
+          id: credential.id,
+          rawId: credential.rawId,
+          type: credential.type,
+          response: {
+            clientDataJSON: credential.response.clientDataJSON,
+            authenticatorData: credential.response.authenticatorData,
+            signature: credential.response.signature,
+            userHandle: credential.response.userHandle,
+          },
+        },
         expectedChallenge: user.currentChallenge,
         expectedOrigin: this.origin,
         expectedRPID: this.rpID,
@@ -495,7 +521,7 @@ export class AuthService {
     if (verification.verified) {
       const { authenticationInfo } = verification;
 
-      const passkeyIndex = user.passkeys.findIndex(key => key.credentialID === body.id);
+      const passkeyIndex = user.passkeys.findIndex(key => key.credentialID === credentialId);
       if (passkeyIndex !== -1) {
         user.passkeys[passkeyIndex].counter = authenticationInfo.newCounter;
       }
