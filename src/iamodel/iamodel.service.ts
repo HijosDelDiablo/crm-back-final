@@ -123,16 +123,16 @@ export class IamodelService {
 
   private async getCompanyInfo(): Promise<IaResponse> {
     const companyInfo = `
-**Autobots - CRM Automotriz del Bajío**
+Autobots - CRM Automotriz del Bajío
 
-**Ubicación:** 
+Ubicación: 
 Blvd. Adolfo López Mateos 123, León, Guanajuato
 
-**Horario:**
+Horario:
 Lunes a Viernes: 9:00 AM - 7:00 PM
 Sábados: 9:00 AM - 2:00 PM
 
-**Contacto de Soporte:**
+Contacto de Soporte:
 soporte@autobots.mx (Extensión 505)
 
 ¿Necesitas ayuda con algo específico?
