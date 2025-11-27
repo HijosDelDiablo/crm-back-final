@@ -16,7 +16,7 @@ const COMPANY_CONTEXT = `
   Misión: Facilitar la compra-venta de autos con confianza y rapidez.
   Ubicación: Blvd. Adolfo López Mateos 123, León, Gto, México.
   Horario: Lunes a Viernes 9am - 7pm, Sábados 9am - 2pm.
-  Soporte Técnico: qatesthijosdeldiablo@gmail.com | Ext: 505.
+  Soporte Técnico: soporte@autobots-crm.mx | Ext: 505.
   Reglas de Negocio: 
   - Los vendedores solo pueden ver sus propios leads.
   - Las cotizaciones requieren aprobación del gerente si el descuento supera el 5%.
@@ -43,7 +43,7 @@ export class IamodelService {
 
   async processQuery(prompt: string, userId: string): Promise<IaResponse> {
     const intent = await this.classifyIntentRobust(prompt);
-    this.logger.log(`Acción: ${intent.action} | Params: ${JSON.stringify(intent.params)} | User: ${userId}`);
+    this.logger.log(`🧠 Acción: ${intent.action} | Params: ${JSON.stringify(intent.params)} | User: ${userId}`);
 
     try {
       switch (intent.action) {
@@ -91,23 +91,37 @@ export class IamodelService {
       Input: "${userPrompt}"
       
       Categorías Disponibles:
-      - Tareas/Agenda: "get_my_tasks"
-      - Ventas/Reportes/KPIs: "get_sales_report"
-      - Gastos/Finanzas: "get_expenses"
-      - Cotizaciones/Aprobaciones: "get_pending_quotes"
-      - Buscar Auto (ej: 'tienes mazda?', 'busco camioneta'): "search_cars" -> params: { "keywords": "..." }
+      - Tareas: "get_my_tasks"
+      - Ventas/Reportes: "get_sales_report"
+      - Gastos: "get_expenses"
+      - Cotizaciones: "get_pending_quotes"
+      - Buscar Auto (Solo si menciona marca/modelo): "search_cars" -> params: { "keywords": "..." }
       - Clientes: "get_clients"
-      - Perfil Usuario (ej: 'quien soy', 'mi rol', 'mis datos'): "get_profile"
-      - Info Empresa (ej: 'direccion', 'horario', 'soporte'): "company_info"
+      - Perfil Usuario: "get_profile"
+      - Info Empresa: "company_info"
       - Consejo Ventas: "sales_advice"
-      - Conversación General: "chat"
+      - Charla/Saludo/Otros: "chat"
 
-      Responde SOLO el JSON. Ejemplo: {"action": "search_cars", "params": {"keywords": "civic"}}
+      Ejemplos válidos:
+      - "Hola": {"action": "chat"}
+      - "Busco un Mazda": {"action": "search_cars", "params": {"keywords": "mazda"}}
+      - "Mis tareas": {"action": "get_my_tasks"}
+      
+      Responde SOLO el JSON.
     `;
 
     try {
       const aiResponse = await this.callOllama(systemPrompt, userPrompt, true);
       const parsed = this.extractJson(aiResponse);
+      
+      if (parsed && parsed.action === 'search_cars') {
+         const key = parsed.params?.keywords || '';
+         if (key && !cleanPrompt.includes(key.toLowerCase())) {
+             this.logger.warn(`⚠️ Alucinación detectada (Keyword: ${key}). Redirigiendo a Chat.`);
+             return { action: 'chat' };
+         }
+      }
+
       if (parsed && parsed.action) return parsed;
     } catch (e) {
       this.logger.warn(`Clasificación IA falló, usando Regex. Error: ${e.message}`);
@@ -120,7 +134,11 @@ export class IamodelService {
     if (cleanPrompt.match(/gasto|pago|luz|agua|renta/)) return { action: 'get_expenses' };
     if (cleanPrompt.match(/cotiza|aprobacion/)) return { action: 'get_pending_quotes' };
     if (cleanPrompt.match(/cliente/)) return { action: 'get_clients' };
-    if (cleanPrompt.match(/busca|coche|auto|carro|modelo|marca|tienes/)) return { action: 'search_cars', params: { keywords: userPrompt } };
+    
+    if (cleanPrompt.match(/coche|auto|carro|camioneta|suv|sedan|honda|mazda|toyota|nissan|chevrolet|ford|audi|bmw|mercedes|volkswagen/)) {
+       return { action: 'search_cars', params: { keywords: userPrompt } };
+    }
+    
     if (cleanPrompt.match(/consejo|tip|ayuda vender/)) return { action: 'sales_advice' };
 
     return { action: 'chat' };
@@ -221,16 +239,28 @@ export class IamodelService {
 
   private async searchCars(keywords: string): Promise<IaResponse> {
     const safeKeywords = keywords.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const cleanKeys = safeKeywords.replace(/busco|un|una|coche|carro|auto|quiero/gi, '').trim();
     
+    const cleanKeys = safeKeywords
+        .replace(/busco|un|una|el|la|los|las|coche|carro|auto|camioneta|quiero|necesito|tienes|modelo|marca/gi, '')
+        .trim();
+    
+    if (cleanKeys.length < 2) {
+        return this.getProductsGeneral();
+    }
+
     const regex = new RegExp(cleanKeys, 'i');
     const cars = await this.productModel.find({
       $or: [{ marca: regex }, { modelo: regex }, { tipo: regex }],
       disponible: true
     }).limit(10);
 
-    if (!cars.length) return { message: `No encontré vehículos para "${cleanKeys}".`, type: 'text' };
-    return { message: `Encontré ${cars.length} opciones disponibles:`, type: 'products_grid', data: cars };
+    if (!cars.length) {
+        return { 
+            message: `No encontré vehículos específicos para "${cleanKeys}". ¿Te gustaría ver el inventario completo?`, 
+            type: 'text' 
+        };
+    }
+    return { message: `Encontré ${cars.length} coincidencias para "${cleanKeys}":`, type: 'products_grid', data: cars };
   }
 
   private async getClients(): Promise<IaResponse> {
