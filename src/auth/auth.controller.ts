@@ -123,28 +123,6 @@ export class AuthController {
     return this.authService.deleteUser(targetUserId, admin);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Get('passkey/register/start')
-  startPasskeyRegister(@GetUser() user: ValidatedUser) {
-    return this.authService.generatePasskeyRegistrationOptions(user);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Post('passkey/register/finish')
-  finishPasskeyRegister(@GetUser() user: ValidatedUser, @Body() body: any) {
-    return this.authService.verifyPasskeyRegistration(user, body);
-  }
-
-  @Post('passkey/login/start')
-  startPasskeyLogin(@Body('email') email: string) {
-    return this.authService.generatePasskeyLoginOptions(email);
-  }
-
-  @Post('passkey/login/finish')
-  async finishPasskeyLogin(@Body() body: { email: string, data: any }) {
-    return this.authService.verifyPasskeyLogin(body.email, body.data);
-  }
-
   @Get('reset-password-page')
   async resetPasswordPage(@Query('token') token: string, @Res() res: Response) {
     if (!token) {
