@@ -74,6 +74,7 @@ export class DashboardService {
             _id: 0,
             nombre: "$vendedorDetalles.nombre",
             email: "$vendedorDetalles.email",
+            fotoPerfil: "$vendedorDetalles.fotoPerfil",
             count: 1,
           },
         },
