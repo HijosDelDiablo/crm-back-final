@@ -18,7 +18,7 @@ export class UpdateCotizacionStatusDto {
   @IsString()
   @IsNotEmpty()
   @IsEnum(['Aprobada', 'Rechazada'])
-  status: string;
+  status: 'Aprobada' | 'Rechazada';
 }
 
 export class UpdateNotasVendedorDto {
