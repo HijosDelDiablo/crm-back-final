@@ -4,12 +4,14 @@ import { Model } from 'mongoose';
 import { Product } from '../product/schemas/product.schema';
 import { User } from '../user/schemas/user.schema';
 import { Cotizacion } from '../cotizacion/schemas/cotizacion.schema'; 
+import { CotizacionService } from '../cotizacion/cotizacion.service';
 
 @Injectable()
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
   constructor(
+    private cotizacionService: CotizacionService,
     @InjectModel(Cotizacion.name) private cotizacionModel: Model<Cotizacion>,
     @InjectModel(Product.name) private productModel: Model<Product>,
     @InjectModel(User.name) private userModel: Model<User>,
@@ -43,28 +45,7 @@ export class DashboardService {
   async getTopProductos() {
     this.logger.log('Obteniendo top productos cotizados');
     try {
-      const topProductos = await this.cotizacionModel.aggregate([
-        { $group: { _id: '$coche', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $limit: 5 },
-        {
-          $lookup: {
-            from: 'products',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'cocheDetalles',
-          },
-        },
-        { $unwind: '$cocheDetalles' },
-        {
-          $project: {
-            _id: 0,
-            nombre: { $concat: ["$cocheDetalles.marca", " ", "$cocheDetalles.modelo"] },
-            count: 1,
-          },
-        },
-      ]);
-      return topProductos;
+      return await this.cotizacionService.getTopProductos();
     } catch (error) {
       this.logger.error('Error obteniendo top productos:', error);
       throw new Error('No se pudo obtener top productos.');

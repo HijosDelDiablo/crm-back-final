@@ -263,4 +263,36 @@ export class CotizacionService {
       htmlBody
     );
   }
+
+  async getTopProductos() {
+    try {
+      const topProductos = await this.cotizacionModel.aggregate([
+        { $match: { status: 'Aprobada'} },
+        { $group: { _id: '$coche', count: { $sum: 1 } } },
+
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: 'products',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'cocheDetalles',
+          },
+        },
+        { $unwind: '$cocheDetalles' },
+        {
+          $project: {
+            _id: 0,
+            nombre: { $concat: ["$cocheDetalles.marca", " ", "$cocheDetalles.modelo"] },
+            imagenUrl: "$cocheDetalles.imageUrl",
+            count: 1,
+          },
+        },
+      ]);
+      return topProductos;
+    } catch (error) {
+      throw new Error('No se pudo obtener top productos.');
+    }
+  }
 }
