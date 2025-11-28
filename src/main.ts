@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -44,6 +45,16 @@ async function bootstrap() {
     preflightContinue: false,
     optionsSuccessStatus: 204
   });
+
+  // Swagger configuration
+  const config = new DocumentBuilder()
+    .setTitle('Smart Assistant CRM')
+    .setDescription('Smart Assistant CRM API')
+    .setVersion('1.0')
+    .addTag('crm')
+    .build();
+  const documentFactory = () => SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, documentFactory);
 
   await app.listen(backendPort ?? 2002, '0.0.0.0');
   console.log(`Servidor ejecutándose en: ${await app.getUrl()}`);
