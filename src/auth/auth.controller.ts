@@ -38,6 +38,12 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+
+  @Post('register/vendedor')
+  registerVendedor(@Body() dto: RegisterAuthDto) {
+    return this.authService.registerVendedor(dto);
+  }
+
   @HttpCode(HttpStatus.OK)
   @UseGuards(LocalAuthGuard)
   @Post('login')
