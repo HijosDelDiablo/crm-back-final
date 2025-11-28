@@ -68,7 +68,7 @@ export class CotizacionController {
   @Patch(':id/status')
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
   async updateStatus(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id') id: string,
     @Body() dto: UpdateCotizacionStatusDto,
     @GetUser() user: ValidatedUser,
   ) {
@@ -82,7 +82,7 @@ export class CotizacionController {
   @Patch(':id/notas')
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
   async updateNotas(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id') id: string,
     @Body() dto: UpdateNotasVendedorDto,
   ) {
     return await this.cotizacionService.updateNotasVendedor(
