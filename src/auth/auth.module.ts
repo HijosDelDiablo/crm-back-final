@@ -8,6 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { GoogleWebStrategy } from './strategies/google-web.strategy';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EmailModule } from '../email/email.module';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -48,6 +49,7 @@ import { User, UserSchema } from '../user/schemas/user.schema';
     LocalStrategy,
     JwtStrategy,
     GoogleStrategy,
+    GoogleWebStrategy,
   ],
 })
 export class AuthModule {}

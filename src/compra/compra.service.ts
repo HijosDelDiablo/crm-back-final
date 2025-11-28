@@ -13,7 +13,6 @@ import { Product, ProductDocument } from '../product/schemas/product.schema';
 import { CreateCompraDto } from './dto/create-compra.dto';
 import { AprobarCompraDto } from './dto/approval.dto';
 import { SimulacionService } from './services/simulacion.service';
-import { EmailService } from '../email/email.service';
 import { OneSignalService } from '../notifications/onesignal.service';
 
 interface ResultadoBanco {
@@ -40,7 +39,6 @@ export class CompraService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly simulacionService: SimulacionService,
-    private readonly emailService: EmailService,
     private readonly oneSignalService: OneSignalService,
   ) {}
 
@@ -140,7 +138,6 @@ export class CompraService {
     }
 
     const compraActualizada = await compra.save();
-
     await this.notificarResultadoFinanciamiento(compraActualizada);
 
     return compraActualizada;
@@ -186,10 +183,7 @@ export class CompraService {
       await this.productModel.findByIdAndUpdate(
         cotizacion.coche._id,
         {
-          $inc: {
-            stock: -1,
-            vecesVendido: 1
-          },
+          $inc: { stock: -1, vecesVendido: 1 },
           disponible: false
         }
       );
@@ -235,12 +229,11 @@ export class CompraService {
       .populate('analistaCredito')
       .exec();
 
-    if (!compra) {
-      throw new NotFoundException('Compra no encontrada');
-    }
-
+    if (!compra) throw new NotFoundException('Compra no encontrada');
     return compra;
   }
+
+  // ---------------------------- NOTIFICACIONES -----------------------------
 
   private async notificarNuevaSolicitud(compra: CompraDocument): Promise<void> {
     try {
@@ -267,8 +260,8 @@ export class CompraService {
     const resultadoBanco = compra.resultadoBanco as ResultadoBanco;
 
     const subject = resultadoBanco.aprobado
-      ? '¡Felicidades! Tu financiamiento ha sido aprobado'
-      : 'Resultado de tu solicitud de financiamiento';
+      ? '¡Felicidades! Tu financiamiento ha sido aprobado - SmartAssistant CRM'
+      : 'Resultado de tu solicitud de financiamiento - SmartAssistant CRM';
 
     const body = resultadoBanco.aprobado
       ? this.generarEmailAprobacion(compra)
@@ -286,7 +279,7 @@ export class CompraService {
 
     await this.oneSignalService.enviarEmailPersonalizado(
       cliente.email,
-      '¡Compra Completada!',
+      '¡Compra Completada! - SmartAssistant CRM',
       this.generarEmailCompletada(compra)
     );
   }
@@ -301,12 +294,38 @@ export class CompraService {
       <html>
       <head>
         <style>
-          body { font-family: Arial, sans-serif; }
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+          .highlight { background: #dbeafe; padding: 15px; border-radius: 8px; margin: 15px 0; }
         </style>
       </head>
       <body>
-        <h2>Hola ${cliente.nombre},</h2>
-        Hemos recibido tu solicitud de compra.
+        <div class="container">
+          <div class="header">
+            <h1>SmartAssistant CRM</h1>
+            <p>Solicitud de Compra Recibida</p>
+          </div>
+          <div class="content">
+            <h2>Hola ${cliente.nombre},</h2>
+            <p>Hemos recibido tu solicitud de compra y estamos procesando tu información.</p>
+            
+            <div class="highlight">
+              <p><b>Vehículo:</b> ${cotizacion.coche.marca} ${cotizacion.coche.modelo}</p>
+              <p><b>Pago mensual estimado:</b> $${cotizacion.pagoMensual.toFixed(2)}</p>
+              <p><b>Plazo:</b> ${cotizacion.plazoMeses} meses</p>
+            </div>
+            
+            <p>Nuestro equipo de análisis crediticio revisará tu solicitud y te notificaremos el resultado en un plazo máximo de 48 horas.</p>
+            <p>Puedes consultar el estado de tu solicitud desde tu panel de cliente.</p>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático, por favor no respondas.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM</p>
+          </div>
+        </div>
       </body>
       </html>
     `;
@@ -321,12 +340,59 @@ export class CompraService {
   private generarEmailAprobacion(compra: CompraDocument): string {
     const cliente = compra.cliente as any;
     const resultadoBanco = compra.resultadoBanco as ResultadoBanco;
+    const cotizacion = compra.cotizacion as any;
 
     return `
-      <html><body>
-      <h1>Financiamiento Aprobado</h1>
-      Hola ${cliente.nombre}
-      </body></html>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+          .highlight { background: #d1fae5; padding: 15px; border-radius: 8px; margin: 15px 0; }
+          .conditions { background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>SmartAssistant CRM</h1>
+            <p>¡Financiamiento Aprobado!</p>
+          </div>
+          <div class="content">
+            <h2>¡Felicidades ${cliente.nombre}!</h2>
+            <p>Tu financiamiento ha sido aprobado.</p>
+            
+            <div class="highlight">
+              <p><b>Vehículo:</b> ${cotizacion.coche.marca} ${cotizacion.coche.modelo}</p>
+              <p><b>Monto aprobado:</b> $${resultadoBanco.montoAprobado?.toFixed(2)}</p>
+              <p><b>Tasa de interés:</b> ${(resultadoBanco.tasaInteres! * 100).toFixed(2)}%</p>
+              <p><b>Pago mensual:</b> $${resultadoBanco.pagoMensual?.toFixed(2)}</p>
+              <p><b>Plazo:</b> ${resultadoBanco.plazoAprobado} meses</p>
+            </div>
+
+            ${resultadoBanco.condiciones && resultadoBanco.condiciones.length > 0 ? `
+            <div class="conditions">
+              <h3>Condiciones del financiamiento:</h3>
+              <ul>
+                ${resultadoBanco.condiciones.map(c => `<li>${c}</li>`).join('')}
+              </ul>
+            </div>
+            ` : ''}
+
+            <p>Un asesor te contactará para continuar con el proceso.</p>
+          </div>
+
+          <div class="footer">
+            <p>Este es un email automático.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM</p>
+          </div>
+        </div>
+      </body>
+      </html>
     `;
   }
 
@@ -335,21 +401,94 @@ export class CompraService {
     const resultadoBanco = compra.resultadoBanco as ResultadoBanco;
 
     return `
-      <html><body>
-      <h1>Financiamiento Rechazado</h1>
-      Hola ${cliente.nombre}
-      </body></html>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #ef4444; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+          .info-box { background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>SmartAssistant CRM</h1>
+            <p>Resultado de Financiamiento</p>
+          </div>
+          <div class="content">
+            <h2>Hola ${cliente.nombre},</h2>
+            <p>Lamentamos informarte que tu financiamiento no fue aprobado.</p>
+
+            <div class="info-box">
+              <p><b>Motivo:</b> ${resultadoBanco.motivoRechazo || 'No cumple con los criterios de aprobación'}</p>
+
+              ${resultadoBanco.sugerencias && resultadoBanco.sugerencias.length > 0 ? `
+              <p><b>Sugerencias:</b></p>
+              <ul>
+                ${resultadoBanco.sugerencias.map(s => `<li>${s}</li>`).join('')}
+              </ul>
+              ` : ''}
+            </div>
+
+            <p>Puedes contactar a un asesor para más opciones.</p>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM</p>
+          </div>
+        </div>
+      </body>
+      </html>
     `;
   }
 
   private generarEmailCompletada(compra: CompraDocument): string {
     const cliente = compra.cliente as any;
+    const cotizacion = compra.cotizacion as any;
 
     return `
-      <html><body>
-      <h1>Compra Completada</h1>
-      Hola ${cliente.nombre}
-      </body></html>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+          .highlight { background: #d1fae5; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>SmartAssistant CRM</h1>
+            <p>¡Compra Completada!</p>
+          </div>
+          <div class="content">
+            <h2>¡Felicidades ${cliente.nombre}!</h2>
+            <p>Tu compra ha sido completada.</p>
+
+            <div class="highlight">
+              <p><b>Vehículo:</b> ${cotizacion.coche.marca} ${cotizacion.coche.modelo}</p>
+              <p><b>Fecha de entrega:</b> ${compra.fechaEntrega?.toLocaleDateString()}</p>
+              <p><b>Pago mensual:</b> $${cotizacion.pagoMensual.toFixed(2)}</p>
+              <p><b>Próximo pago:</b> ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</p>
+            </div>
+
+            <p>Tu primer pago vence en 30 días.</p>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM</p>
+          </div>
+        </div>
+      </body>
+      </html>
     `;
   }
 }
