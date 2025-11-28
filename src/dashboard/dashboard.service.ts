@@ -23,7 +23,7 @@ export class DashboardService {
     try {
       const cotizacionesAprobadas = await this.cotizacionModel.find({
         status: 'Aprobada',
-        createdAt: {
+        fechaCreacion: {
           $gte: startDate,
           $lte: endDate,
         },
