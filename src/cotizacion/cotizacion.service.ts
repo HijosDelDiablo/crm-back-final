@@ -12,7 +12,6 @@ import { UserService } from '../user/user.service';
 import { OneSignalService } from '../notifications/onesignal.service';
 import { Cotizacion, CotizacionDocument } from './schemas/cotizacion.schema';
 
-// Interfaces para tipado de poblaciones
 interface CotizacionWithCliente extends Omit<CotizacionDocument, 'cliente'> {
   cliente: UserDocument;
 }
@@ -40,7 +39,7 @@ export class CotizacionService {
     enganche: number,
     plazoMeses: number,
   ): Promise<CotizacionDocument> {
-    const coche: ProductDocument | null = await this.productModel.findById(cocheId);
+    const coche = await this.productModel.findById(cocheId);
     if (!coche) {
       throw new NotFoundException('El coche solicitado no existe.');
     }
@@ -64,8 +63,8 @@ export class CotizacionService {
     const totalPagado = pagoMensual * plazoMeses + enganche;
 
     const nuevaCotizacion = new this.cotizacionModel({
-      cliente: new Types.ObjectId(cliente._id.toString()), 
-      coche: new Types.ObjectId(coche._id.toString()),
+      cliente: cliente._id, 
+      coche: coche._id,
       precioCoche: precio,
       enganche: enganche,
       plazoMeses: plazoMeses,

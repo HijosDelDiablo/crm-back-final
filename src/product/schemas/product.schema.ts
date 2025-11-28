@@ -6,8 +6,6 @@ export type ProductDocument = Product & Document;
 
 @Schema({ timestamps: true })
 export class Product {
-  _id: Types.ObjectId;
-
   @Prop({ required: true, trim: true })
   marca: string;
 
