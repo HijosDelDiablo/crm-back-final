@@ -23,18 +23,27 @@ export class DashboardController {
   ) {
     return this.dashboardService.getReporteVentas(query.startDate, query.endDate);
   }
-
+  
   @Get('top-productos')
   @ApiOperation({ summary: 'Get top products (Admin)' })
   @ApiResponse({ status: 200, description: 'Return top products' })
   getTopProductos() {
     return this.dashboardService.getTopProductos();
   }
-
+  
   @Get('top-vendedores')
   @ApiOperation({ summary: 'Get top sellers (Admin)' })
   @ApiResponse({ status: 200, description: 'Return top sellers' })
   getTopVendedores() {
     return this.dashboardService.getTopVendedores();
+  }
+  
+  @Get('ventas-periodo')
+  @ApiOperation({ summary: 'Get sales by period (Admin)' })
+  @ApiResponse({ status: 200, description: 'Return sales by period' })
+  getVentasPeriodo(
+    @Query() query: { startDate?: string; endDate?: string; },
+  ) {
+    return this.dashboardService.getVentasPeriodo(query.startDate, query.endDate);
   }
 }

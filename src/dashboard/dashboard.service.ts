@@ -5,6 +5,7 @@ import { Product } from '../product/schemas/product.schema';
 import { User } from '../user/schemas/user.schema';
 import { Cotizacion } from '../cotizacion/schemas/cotizacion.schema'; 
 import { CotizacionService } from '../cotizacion/cotizacion.service';
+import { CompraService } from 'src/compra/compra.service';
 
 @Injectable()
 export class DashboardService {
@@ -12,6 +13,7 @@ export class DashboardService {
 
   constructor(
     private cotizacionService: CotizacionService,
+    private compraService: CompraService,
     @InjectModel(Cotizacion.name) private cotizacionModel: Model<Cotizacion>,
     @InjectModel(Product.name) private productModel: Model<Product>,
     @InjectModel(User.name) private userModel: Model<User>,
@@ -85,4 +87,33 @@ export class DashboardService {
       throw new Error('No se pudo obtener top vendedores.');
     }
   }
-}
+
+  async getVentasPeriodo(startDateString?: string, endDateString?: string) {
+    this.logger.log(`Obteniendo ventas por periodo: ${startDateString} - ${endDateString}`);
+    // Convertir las fechas de string a Date si están definidas
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    if (startDateString) {
+      startDate = new Date(startDateString);
+    }
+    if (endDateString) {
+      endDate = new Date(endDateString);
+    }
+    try {
+      const filter: any = { status: 'Aprobada' };
+      if (startDate) {
+        filter.fechaCreacion = { ...filter.fechaCreacion, $gte: startDate };
+      }
+      if (endDate) {
+        filter.fechaCreacion = { ...filter.fechaCreacion, $lte: endDate };
+      }
+
+      const ventas = await this.compraService.getVentasPeriodo(filter);
+      return ventas;
+    } catch (error) {
+      this.logger.error('Error obteniendo ventas por periodo:', error);
+      throw new Error('No se pudo obtener ventas por periodo.');
+    }
+  }
+
+  }
