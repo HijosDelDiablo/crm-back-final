@@ -5,7 +5,7 @@ import { Product } from '../product/schemas/product.schema';
 import { User } from '../user/schemas/user.schema';
 import { Cotizacion } from '../cotizacion/schemas/cotizacion.schema'; 
 import { CotizacionService } from '../cotizacion/cotizacion.service';
-import { CompraService } from 'src/compra/compra.service';
+import { CompraService } from '../compra/compra.service';
 
 @Injectable()
 export class DashboardService {

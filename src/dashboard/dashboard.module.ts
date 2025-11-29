@@ -6,7 +6,7 @@ import { Cotizacion, CotizacionSchema } from '../cotizacion/schemas/cotizacion.s
 import { Product, ProductSchema } from '../product/schemas/product.schema';
 import { User, UserSchema } from '../user/schemas/user.schema';
 import { CotizacionModule } from '../cotizacion/cotizacion.module';
-import { CompraModule } from 'src/compra/compra.module';
+import { CompraModule } from '../compra/compra.module';
 
 @Module({
   imports: [
