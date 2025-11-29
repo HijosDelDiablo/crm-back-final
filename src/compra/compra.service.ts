@@ -42,6 +42,17 @@ export class CompraService {
     private readonly oneSignalService: OneSignalService,
   ) {}
 
+   async getVentasPeriodo(filter) {
+    try {
+  
+      const ventas = await this.compraModel.find(filter);
+      return ventas;
+    } catch (error) {
+      this.logger.error('Error obteniendo ventas con filtro:', error);
+      throw new Error('No se pudo obtener ventas con filtro.');
+    }
+  }
+
   async iniciarProcesoCompra(
     cliente: ValidatedUser,
     createCompraDto: CreateCompraDto,
