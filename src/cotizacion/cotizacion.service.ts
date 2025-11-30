@@ -114,7 +114,7 @@ export class CotizacionService {
       .find({})
       .populate('cliente', 'nombre email telefono fotoPerfil')
       .populate('vendedor', 'nombre email telefono fotoPerfil')
-      .populate('coche', 'marca modelo ano precioBase descripcion condicion tipo transmision motor imagenUrl')
+      .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
       .exec();
   }
   
