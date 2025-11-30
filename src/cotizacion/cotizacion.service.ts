@@ -117,6 +117,16 @@ export class CotizacionService {
       .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
       .exec();
   }
+
+  async setSellerToPricing(idPricing: string, idSeller: string) {    
+    const cotizacion = await this.cotizacionModel.findById(idPricing).exec();
+    
+    if (!cotizacion) {
+      throw new NotFoundException('Cotización no encontrada.');
+    }
+    cotizacion.set('vendedor', idSeller);
+    return cotizacion.save();
+  }
   
   async updateCotizacionStatus(
     id: string,

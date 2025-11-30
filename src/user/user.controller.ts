@@ -79,7 +79,7 @@ export class UserController {
     return this.userService.getVendedoresOrdenadosPorClientes();
   }
 
-  @Patch('set-seller-to-client')
+  @Patch(':idClient/set-seller-to-client/:idSeller')
   @Roles(Rol.ADMIN)
   @ApiOperation({ summary: 'Update user role (Admin)' })
   @ApiParam({ name: 'idOfClient', description: 'User ID of the client' })

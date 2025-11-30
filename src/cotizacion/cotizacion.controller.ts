@@ -82,4 +82,16 @@ export class CotizacionController {
       dto.status as 'Aprobada' | 'Rechazada'
     );
   }
+  @Patch(':idPricing/set-seller-to-pricing/:idSeller')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Update cotizacion seller ( Admin)' })
+  @ApiParam({ name: 'idPricing', description: 'Cotizacion ID' })
+  @ApiParam({ name: 'idSeller', description: 'Vendedor ID' })
+  setSellerToPricing(
+    @Param('idPricing') idPricing: string,
+    @Param('idSeller') idSeller: string,
+  ) {
+    return this.cotizacionService.setSellerToPricing(idPricing, idSeller);
+  }
 }
