@@ -4,13 +4,22 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from '../product/schemas/product.schema';
 import { User, UserDocument } from '../user/schemas/user.schema';
 import { ValidatedUser } from '../user/schemas/user.schema';
 import { UserService } from '../user/user.service';
 import { OneSignalService } from '../notifications/onesignal.service';
 import { Cotizacion, CotizacionDocument } from './schemas/cotizacion.schema';
+
+interface CotizacionWithCliente extends Omit<CotizacionDocument, 'cliente'> {
+  cliente: UserDocument;
+}
+
+interface CotizacionWithClienteAndCoche extends Omit<CotizacionDocument, 'cliente' | 'coche'> {
+  cliente: UserDocument;
+  coche: ProductDocument;
+}
 
 @Injectable()
 export class CotizacionService {
@@ -30,7 +39,7 @@ export class CotizacionService {
     enganche: number,
     plazoMeses: number,
   ): Promise<CotizacionDocument> {
-    const coche: ProductDocument | null = await this.productModel.findById(cocheId);
+    const coche = await this.productModel.findById(cocheId);
     if (!coche) {
       throw new NotFoundException('El coche solicitado no existe.');
     }
@@ -71,7 +80,7 @@ export class CotizacionService {
     const clienteDoc = await this.userService.findById(cliente._id.toString());
     if (clienteDoc) {
         await this.enviarCorreoCotizacionOneSignal(
-          clienteDoc as any,
+          clienteDoc,
           coche,
           cotizacionGuardada,
         );
@@ -94,8 +103,14 @@ export class CotizacionService {
       throw new NotFoundException('El cliente seleccionado no existe.');
     }
 
+    const validatedUser: ValidatedUser = {
+      _id: cliente._id,
+      nombre: cliente.nombre,
+      email: cliente.email,
+    } as ValidatedUser;
+
     return this.generarCotizacion(
-      cliente as ValidatedUser,
+      validatedUser,
       dto.cocheId,
       dto.enganche,
       dto.plazoMeses,
@@ -109,7 +124,29 @@ export class CotizacionService {
       .populate('coche', 'marca modelo ano precioBase')
       .exec();
   }
+
+  async getCotizacionesAprovadas(): Promise<CotizacionDocument[]> {
+    return this.cotizacionModel
+      .find({ status: 'Aprobada' })
+      .populate('cliente', 'nombre email telefono')
+      .populate('coche', 'marca modelo ano precioBase')
+      .exec();
+  }
   
+  async updateNotasVendedor(
+      id: string,
+      notasVendedor: string,
+    ): Promise<CotizacionDocument> {
+      const cotizacion = await this.cotizacionModel.findById(id);
+      
+      if (!cotizacion) {
+        throw new NotFoundException('Cotización no encontrada.');
+      }
+
+      cotizacion.notasVendedor = notasVendedor;
+      return await cotizacion.save();
+    }
+
   async updateCotizacionStatus(
     id: string,
     vendedor: ValidatedUser, 
@@ -120,30 +157,34 @@ export class CotizacionService {
       .findById(id)
       .populate<{ cliente: UserDocument }>('cliente')
       .populate<{ coche: ProductDocument }>('coche')
-      .exec();
+      .exec() as unknown as CotizacionWithClienteAndCoche;
 
     if (!cotizacion) {
       throw new NotFoundException('Cotización no encontrada.');
     }
 
     cotizacion.status = status;
-    cotizacion.set('vendedor', vendedor._id);
+    cotizacion.vendedor = new Types.ObjectId(vendedor._id.toString());
 
     const cotizacionActualizada = await cotizacion.save();
     
-    await this.enviarCorreoResultadoCotizacionOneSignal(
-      cotizacion.cliente,
-      cotizacion.coche,
-      cotizacionActualizada as any,
-    );
+    try {
+      await this.enviarCorreoResultadoCotizacionOneSignal(
+        cotizacion.cliente,
+        cotizacion.coche,
+        cotizacionActualizada,
+      );
+    } catch (emailError) {
+      console.error('Error enviando email:', emailError);
+    }
 
-    return cotizacionActualizada as any as CotizacionDocument;
+    return cotizacionActualizada;
   }
 
   private async enviarCorreoCotizacionOneSignal(
-    cliente: User, 
-    coche: Product, 
-    cotizacion: Cotizacion
+    cliente: UserDocument, 
+    coche: ProductDocument, 
+    cotizacion: CotizacionDocument
   ): Promise<void> {
     const subject = 'Tu cotización ha sido generada - SmartAssistant CRM';
     const htmlBody = `
@@ -196,63 +237,70 @@ export class CotizacionService {
   }
 
   private async enviarCorreoResultadoCotizacionOneSignal(
-    cliente: User, 
-    coche: Product, 
-    cotizacion: Cotizacion
+    cliente: UserDocument, 
+    coche: ProductDocument, 
+    cotizacion: CotizacionDocument
   ): Promise<void> {
-    const aprobado = cotizacion.status === 'Aprobada';
-    const subject = aprobado 
-      ? '¡Tu solicitud ha sido aprobada! - SmartAssistant CRM' 
-      : 'Resultado de tu solicitud - SmartAssistant CRM';
-    
-    const mensaje = aprobado
-      ? `
-        <p>Nos complace informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #10b981;">APROBADA</b>.</p>
-        <p>Un asesor se pondrá en contacto contigo para continuar con el proceso.</p>
-      `
-      : `
-        <p>Lamentamos informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #ef4444;">RECHAZADA</b>.</p>
-        <p>Si deseas revisar otras opciones de financiamiento, contáctanos.</p>
+    try {
+      const aprobado = cotizacion.status === 'Aprobada';
+      const subject = aprobado 
+        ? '¡Tu solicitud ha sido aprobada! - SmartAssistant CRM' 
+        : 'Resultado de tu solicitud - SmartAssistant CRM';
+      
+      const mensaje = aprobado
+        ? `
+          <p>Nos complace informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #10b981;">APROBADA</b>.</p>
+          <p>Un asesor se pondrá en contacto contigo para continuar con el proceso.</p>
+        `
+        : `
+          <p>Lamentamos informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #ef4444;">RECHAZADA</b>.</p>
+          <p>Si deseas revisar otras opciones de financiamiento, contáctanos.</p>
+        `;
+
+      const htmlBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: ${aprobado ? '#10b981' : '#ef4444'}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+            .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>SmartAssistant CRM</h1>
+              <p>${aprobado ? 'Solicitud Aprobada' : 'Solicitud Rechazada'}</p>
+            </div>
+            <div class="content">
+              <h2>Hola ${cliente.nombre},</h2>
+              ${mensaje}
+              <br/>
+              <p>Gracias por confiar en nosotros.</p>
+              <p><i>Atentamente,<br/>El equipo de Ventas</i></p>
+            </div>
+            <div class="footer">
+              <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+              <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
       `;
 
-    const htmlBody = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: ${aprobado ? '#10b981' : '#ef4444'}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>SmartAssistant CRM</h1>
-            <p>${aprobado ? 'Solicitud Aprobada' : 'Solicitud Rechazada'}</p>
-          </div>
-          <div class="content">
-            <h2>Hola ${cliente.nombre},</h2>
-            ${mensaje}
-            <br/>
-            <p>Gracias por confiar en nosotros.</p>
-            <p><i>Atentamente,<br/>El equipo de Ventas</i></p>
-          </div>
-          <div class="footer">
-            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
-            <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    await this.oneSignalService.enviarEmailPersonalizado(
-      cliente.email,
-      subject,
-      htmlBody
-    );
+      await this.oneSignalService.enviarEmailPersonalizado(
+        cliente.email,
+        subject,
+        htmlBody
+      );
+      
+      console.log(`Email de ${cotizacion.status} enviado exitosamente a ${cliente.email}`);
+    } catch (error) {
+      console.error('Error enviando correo de resultado:', error);
+      throw new Error(`No se pudo enviar el email: ${error.message}`);
+    }
   }
 }

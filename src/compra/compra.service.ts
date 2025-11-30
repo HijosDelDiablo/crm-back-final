@@ -212,7 +212,27 @@ export class CompraService {
 
   async getComprasPendientes(): Promise<CompraDocument[]> {
     return this.compraModel
-      .find({ status: { $in: [StatusCompra.EN_REVISION, StatusCompra.APROBADA] } })
+      .find({ status: StatusCompra.PENDIENTE })
+      .populate('cotizacion')
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async getComprasEnRevision(): Promise<CompraDocument[]> {
+    return this.compraModel
+      .find({ status: StatusCompra.EN_REVISION })
+      .populate('cotizacion')
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async getComprasAprobadas(): Promise<CompraDocument[]> {
+    return this.compraModel
+      .find({ status: StatusCompra.APROBADA })
       .populate('cotizacion')
       .populate('cliente', 'nombre email telefono')
       .populate('vendedor', 'nombre email')
@@ -232,8 +252,6 @@ export class CompraService {
     if (!compra) throw new NotFoundException('Compra no encontrada');
     return compra;
   }
-
-  // ---------------------------- NOTIFICACIONES -----------------------------
 
   private async notificarNuevaSolicitud(compra: CompraDocument): Promise<void> {
     try {
@@ -374,14 +392,18 @@ export class CompraService {
               <p><b>Plazo:</b> ${resultadoBanco.plazoAprobado} meses</p>
             </div>
 
-            ${resultadoBanco.condiciones && resultadoBanco.condiciones.length > 0 ? `
+            ${
+              resultadoBanco.condiciones && resultadoBanco.condiciones.length > 0
+                ? `
             <div class="conditions">
               <h3>Condiciones del financiamiento:</h3>
               <ul>
                 ${resultadoBanco.condiciones.map(c => `<li>${c}</li>`).join('')}
               </ul>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
 
             <p>Un asesor te contactará para continuar con el proceso.</p>
           </div>
@@ -426,12 +448,16 @@ export class CompraService {
             <div class="info-box">
               <p><b>Motivo:</b> ${resultadoBanco.motivoRechazo || 'No cumple con los criterios de aprobación'}</p>
 
-              ${resultadoBanco.sugerencias && resultadoBanco.sugerencias.length > 0 ? `
+              ${
+                resultadoBanco.sugerencias && resultadoBanco.sugerencias.length > 0
+                  ? `
               <p><b>Sugerencias:</b></p>
               <ul>
                 ${resultadoBanco.sugerencias.map(s => `<li>${s}</li>`).join('')}
               </ul>
-              ` : ''}
+              `
+                  : ''
+              }
             </div>
 
             <p>Puedes contactar a un asesor para más opciones.</p>

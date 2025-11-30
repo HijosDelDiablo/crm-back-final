@@ -52,6 +52,26 @@ export class AuthService {
     return user;
   }
 
+  async registerVendedor(dto: RegisterAuthDto) {
+    const userExists = await this.userService.findByEmail(dto.email);
+    if (userExists) {
+      throw new ConflictException('El correo electrónico ya está registrado.');
+    }
+
+    const hashedPassword = await hash(dto.password, 10);
+
+    const newUser = await this.userService.create({
+      nombre: dto.nombre,
+      email: dto.email,
+      password: hashedPassword,
+      telefono: dto.telefono,
+      rol: Rol.VENDEDOR,
+    });
+
+    const { password, ...user } = newUser.toObject();
+    return user;
+  }
+
   async loginConCredenciales(userFromValidation: ValidatedUser) {
     if (userFromValidation.twoFactorEnabled) {
       const id = userFromValidation._id.toString();

@@ -22,6 +22,7 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { GastosModule } from './gastos/gastos.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { IamodelModule } from './iamodel/iamodel.module';
 
 @Module({
   imports: [
@@ -70,7 +71,7 @@ import { AppService } from './app.service';
     }),
 
     HttpModule.register({
-      timeout: 5000,
+      timeout: 60000,
       maxRedirects: 5,
     }),
 
@@ -92,6 +93,7 @@ import { AppService } from './app.service';
     CompraModule,
     ProveedoresModule,
     GastosModule,
+    IamodelModule,
   ],
   controllers: [AppController],
   providers: [AppService],

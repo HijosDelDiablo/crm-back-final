@@ -1,6 +1,21 @@
-import { Controller, Post, Body, UseGuards, Get, Patch, Param } from '@nestjs/common';
+import { 
+  Controller, 
+  Post, 
+  Body, 
+  UseGuards, 
+  Get, 
+  Patch, 
+  Param,
+  HttpCode,
+  HttpStatus,
+  ParseUUIDPipe 
+} from '@nestjs/common';
 import { CotizacionService } from './cotizacion.service';
-import { CreateCotizacionDto, UpdateCotizacionStatusDto } from './dto/cotizacion.dto';
+import { 
+  CreateCotizacionDto, 
+  UpdateCotizacionStatusDto, 
+  UpdateNotasVendedorDto 
+} from './dto/cotizacion.dto';
 import { VendedorCreateCotizacionDto } from './dto/vendedor-cotizacion.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -10,18 +25,18 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import type { ValidatedUser } from '../user/schemas/user.schema';
 
 @Controller('cotizacion')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class CotizacionController {
   constructor(private readonly cotizacionService: CotizacionService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
   @Roles(Rol.CLIENTE)
-  generarCotizacion(
+  @HttpCode(HttpStatus.CREATED)
+  async generarCotizacion(
     @Body() dto: CreateCotizacionDto,
     @GetUser() user: ValidatedUser,
   ) {
-    return this.cotizacionService.generarCotizacion(
+    return await this.cotizacionService.generarCotizacion(
       user,
       dto.cocheId,
       dto.enganche,
@@ -30,33 +45,49 @@ export class CotizacionController {
   }
 
   @Post('vendedor-create')
-  @UseGuards(RolesGuard)
   @Roles(Rol.VENDEDOR)
-  vendedorGenerarCotizacion(
+  @HttpCode(HttpStatus.CREATED)
+  async vendedorGenerarCotizacion(
     @Body() dto: VendedorCreateCotizacionDto,
   ) {
-    return this.cotizacionService.vendedorGenerarCotizacion(dto);
+    return await this.cotizacionService.vendedorGenerarCotizacion(dto);
   }
   
   @Get('pendientes')
-  @UseGuards(RolesGuard)
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
-  getCotizacionesPendientes() {
-    return this.cotizacionService.getCotizacionesPendientes();
+  async getCotizacionesPendientes() {
+    return await this.cotizacionService.getCotizacionesPendientes();
+  }
+
+  @Get('aprobadas')
+  @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  async getCotizacionesAprovadas() {
+    return await this.cotizacionService.getCotizacionesAprovadas();
   }
   
   @Patch(':id/status')
-  @UseGuards(RolesGuard)
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
-  updateStatus(
+  async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateCotizacionStatusDto,
     @GetUser() user: ValidatedUser,
   ) {
-    return this.cotizacionService.updateCotizacionStatus(
+    return await this.cotizacionService.updateCotizacionStatus(
       id, 
       user,
-      dto.status as 'Aprobada' | 'Rechazada'
+      dto.status
+    );
+  }
+
+  @Patch(':id/notas')
+  @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  async updateNotas(
+    @Param('id') id: string,
+    @Body() dto: UpdateNotasVendedorDto,
+  ) {
+    return await this.cotizacionService.updateNotasVendedor(
+      id, 
+      dto.notasVendedor || ''
     );
   }
 }

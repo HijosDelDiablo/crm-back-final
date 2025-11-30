@@ -37,7 +37,6 @@ export class User extends Document {
   @Prop({ required: false })
   oneSignalPlayerId?: string;
 
-  // --- NUEVOS CAMPOS AÑADIDOS ---
   @Prop({ default: null })
   fotoPerfil?: string;
 

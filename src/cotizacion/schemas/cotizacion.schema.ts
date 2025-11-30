@@ -13,8 +13,8 @@ export class Cotizacion {
   @Prop({ type: Types.ObjectId, ref: Product.name, required: true })
   coche: Types.ObjectId;
   
-  @Prop({ type: Types.ObjectId, ref: User.name })
-  vendedor?: Types.ObjectId; 
+  @Prop({ type: Types.ObjectId, ref: User.name, required: false })
+  vendedor?: Types.ObjectId;
 
   @Prop({ required: true })
   precioCoche: number;
@@ -39,6 +39,9 @@ export class Cotizacion {
 
   @Prop({ type: String, required: true, default: 'Pendiente' })
   status: string;
+
+  @Prop({ type: String, default: '' })
+  notasVendedor?: string;
 }
 
 export const CotizacionSchema = SchemaFactory.createForClass(Cotizacion);
