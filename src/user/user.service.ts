@@ -140,4 +140,35 @@ export class UserService {
 
     return user;
   }
+
+  async getVendedoresOrdenadosPorClientes(): Promise<UserDocument[]> {
+    try {
+        const vendedores = await this.userModel.aggregate([
+            {
+                $match: { rol: 'VENDEDOR' }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: '_id',
+                    foreignField: 'vendedorQueAtiende',
+                    as: 'clientesAsignados'
+                }
+            },
+            {
+                $addFields: {
+                    cantidadClientes: { $size: '$clientesAsignados' }
+                }
+            },
+            {
+                $sort: { cantidadClientes: 1 }
+            }
+        ]);
+
+        return vendedores;
+    } catch (error) {
+        //this.logger.error('Error obteniendo vendedores ordenados por clientes:', error);
+        throw new Error('No se pudo obtener la lista de vendedores.');
+    }
+  }
 }

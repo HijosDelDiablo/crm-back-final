@@ -71,6 +71,13 @@ export class UserController {
   findAllVendedores() {
     return this.userService.findAllVendedores();
   }
+  @Get('vendedores-with-num-clients')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Get all vendedores (Admin)' })
+  @ApiResponse({ status: 200, description: 'Return all vendedores' })
+  findAllVendedoresWithNumClients() {
+    return this.userService.getVendedoresOrdenadosPorClientes();
+  }
 
   @Patch(':id/role')
   @Roles(Rol.ADMIN)
