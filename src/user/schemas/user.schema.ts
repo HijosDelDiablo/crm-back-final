@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { Rol } from '../../auth/enums/rol.enum';
 
 @Schema({ timestamps: true })
@@ -49,6 +49,9 @@ export class User extends Document {
 
   @Prop({ default: true })
   activo: boolean;
+
+   @Prop({ type: Types.ObjectId, ref: User.name })
+    vendedorQueAtiende?: Types.ObjectId; // Solo aplicable si el rol es CLIENTE
 }
 
 export type UserDocument = User & Document;
