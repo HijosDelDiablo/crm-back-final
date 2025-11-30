@@ -79,6 +79,18 @@ export class UserController {
     return this.userService.getVendedoresOrdenadosPorClientes();
   }
 
+  @Patch('set-seller-to-client')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Update user role (Admin)' })
+  @ApiParam({ name: 'idOfClient', description: 'User ID of the client' })
+  @ApiParam({ name: 'idOfClient', description: 'User ID of the client' })
+  setSellerToClient(
+    @Param('idClient') clientId: string,
+    @Param('idSeller') sellerId: string,
+  ) {
+    return this.userService.setSellerToClient(clientId, sellerId);
+  }
+
   @Patch(':id/role')
   @Roles(Rol.ADMIN)
   @ApiOperation({ summary: 'Update user role (Admin)' })

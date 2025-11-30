@@ -171,4 +171,30 @@ export class UserService {
         throw new Error('No se pudo obtener la lista de vendedores.');
     }
   }
+  async setSellerToClient(clientId: string, sellerId: string): Promise<UserDocument> {
+    const updatedClient = await this.userModel
+      .findByIdAndUpdate(
+        clientId,
+        { vendedorQueAtiende: sellerId },
+        { new: true }
+      )
+      .select('-password -twoFactorSecret -twoFactorTempSecret');
+    if (!updatedClient) {
+      throw new NotFoundException(`Cliente con ID "${clientId}" no encontrado.`);
+    }
+    return updatedClient;
+  }
+  async updateSellerToClient(clientId: string, sellerId: string): Promise<UserDocument> {
+    const updatedClient = await this.userModel
+      .findByIdAndUpdate(
+        clientId,
+        { vendedorQueAtiende: sellerId },
+        { new: false }
+      )
+      .select('-password -twoFactorSecret -twoFactorTempSecret');
+    if (!updatedClient) {
+      throw new NotFoundException(`Cliente con ID "${clientId}" no encontrado.`);
+    }
+    return updatedClient;
+  }
 }
