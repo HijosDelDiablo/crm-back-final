@@ -77,10 +77,12 @@ export class UserService {
   }
 
   async findAllClients(): Promise<UserDocument[]> {
-    return this.userModel.find({ rol: Rol.CLIENTE })
+    const clients = await this.userModel.find({ rol: Rol.CLIENTE })
       .select('-password -twoFactorSecret -twoFactorTempSecret')
+      .populate('vendedorQueAtiende', 'nombre email fotoPerfil')
       .sort({ nombre: 1 })
-      .exec();
+      .exec();      
+    return clients;
   }
 
   async updatePlayerId(userId: string, playerId: string): Promise<UserDocument> {
