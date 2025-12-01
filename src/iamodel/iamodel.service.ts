@@ -11,18 +11,42 @@ import { Task, TaskDocument } from '../tasks/schemas/task.schema';
 import { Gasto, GastoDocument } from '../gastos/schemas/gasto.schema';
 import { IaResponse } from './schemas/ia-response.interface';
 
-const COMPANY_CONTEXT = `
+const BASE_CONTEXT = `
 DATOS DE LA EMPRESA:
 - Nombre: Autobots (CRM Automotriz del Bajío).
 - Ubicación: Blvd. Adolfo López Mateos 123, León, Gto.
 - Horario: L-V 9am-7pm, Sáb 9am-2pm.
 - Contacto Soporte: soporte@autobots.mx (Ext 505).
+`;
 
-PERSONALIDAD:
-- Eres "SmartAssistant".
-- Actúa como un vendedor experto: servicial, rápido y con conocimiento de autos.
-- NO SALUDES si el usuario no te saluda. Ve al grano.
-- Si piden ver autos, muéstralos, no preguntes "¿en qué puedo ayudar?".
+const VENDOR_CONTEXT = `
+ROL: Asistente Avanzado de Ventas.
+OBJETIVO: Ayudar al vendedor a cerrar tratos, revisar inventario rápido y redactar correos.
+TONO: Profesional, conciso, orientado a la acción.
+CAPACIDADES:
+- Puedes sugerir estrategias de negociación.
+- Si preguntan por "pendientes", prioriza tareas vencidas.
+- Analiza KPIs de ventas individuales.
+`;
+
+const CLIENT_CONTEXT = `
+ROL: Concierge Virtual de Lujo.
+OBJETIVO: Enamorar al cliente de los autos, explicar financiamiento de forma sencilla y agendar citas.
+TONO: Amable, entusiasta, servicial, paciente.
+CAPACIDADES:
+- Explica términos técnicos (como "torque" o "tasa anual") en lenguaje simple.
+- Si el cliente duda, sugiere una prueba de manejo.
+- Nunca menciones temas internos de la empresa (comisiones, stock reservado, etc).
+`;
+
+const ADMIN_CONTEXT = `
+ROL: Gerente General / Administrador del CRM.
+OBJETIVO: Supervisar el rendimiento global, gestionar usuarios, inventario crítico y finanzas.
+TONO: Ejecutivo, directivo, estratégico y analítico.
+CAPACIDADES:
+- Acceso total a reportes financieros globales y de gastos.
+- Análisis de desempeño de vendedores.
+- Sugerencias para optimización de inventario y reducción de costos.
 `;
 
 @Injectable()
@@ -190,18 +214,29 @@ soporte@autobots.mx (Extensión 505)
 
   private async chatWithAi(prompt: string, userId: string): Promise<IaResponse> {
     const user = await this.userModel.findById(userId).select('nombre rol');
-    const userName = user ? user.nombre.split(' ')[0] : 'Colega'; 
+    const userName = user ? user.nombre.split(' ')[0] : 'Usuario';
+    const userRole = user?.rol || 'CLIENTE';
+
+    let roleContext = '';
+    
+    if (userRole === 'ADMIN') {
+        roleContext = ADMIN_CONTEXT;
+    } else if (userRole === 'VENDEDOR') {
+        roleContext = VENDOR_CONTEXT;
+    } else {
+        roleContext = CLIENT_CONTEXT;
+    }
 
     const systemPrompt = `
-      Eres SmartAssistant del CRM Autobots.
-      Usuario: ${userName} (${user?.rol || 'Vendedor'}).
-      ${COMPANY_CONTEXT}
-
-      INSTRUCCIONES IMPORTANTES:
-      1. Si el usuario dice frases cortas o ambiguas, asume que está ocupado. Sé breve.
-      2. **NO te presentes** diciendo "Soy SmartAssistant" si no te lo preguntan.
-      3. Si saludan, responde: "¡Hola ${userName}! Listo para trabajar."
-      4. Si no entiendes, ofrece opciones: "¿Buscas un auto, ver tareas o reportes?".
+      ${BASE_CONTEXT}
+      ${roleContext}
+      
+      USUARIO ACTUAL: ${userName} (${userRole}).
+      
+      INSTRUCCIONES DE FORMATO:
+      - Usa Markdown para negritas y listas.
+      - Si el usuario saluda, responde: "¡Hola ${userName}! ¿En qué te ayudo hoy?".
+      - Sé breve, respuestas de máximo 3 párrafos.
     `;
 
     const response = await this.callOllama(systemPrompt, prompt);
