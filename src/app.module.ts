@@ -22,6 +22,8 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { GastosModule } from './gastos/gastos.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { StatisticsModule } from './statistics/statistics.module';
+import { FavoritesUserModule } from './favorites-user/favorites-user.module';
 import { IamodelModule } from './iamodel/iamodel.module';
 
 @Module({
@@ -94,6 +96,8 @@ import { IamodelModule } from './iamodel/iamodel.module';
     ProveedoresModule,
     GastosModule,
     IamodelModule,
+    StatisticsModule,
+    FavoritesUserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

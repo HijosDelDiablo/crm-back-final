@@ -18,5 +18,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
   ],
   controllers: [CotizacionController],
   providers: [CotizacionService],
+  exports: [CotizacionService],
 })
 export class CotizacionModule {}

@@ -140,4 +140,61 @@ export class UserService {
 
     return user;
   }
+
+  async getVendedoresOrdenadosPorClientes(): Promise<UserDocument[]> {
+    try {
+        const vendedores = await this.userModel.aggregate([
+            {
+                $match: { rol: 'VENDEDOR' }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: '_id',
+                    foreignField: 'vendedorQueAtiende',
+                    as: 'clientesAsignados'
+                }
+            },
+            {
+                $addFields: {
+                    cantidadClientes: { $size: '$clientesAsignados' }
+                }
+            },
+            {
+                $sort: { cantidadClientes: 1 }
+            }
+        ]);
+
+        return vendedores;
+    } catch (error) {
+        //this.logger.error('Error obteniendo vendedores ordenados por clientes:', error);
+        throw new Error('No se pudo obtener la lista de vendedores.');
+    }
+  }
+  async setSellerToClient(clientId: string, sellerId: string): Promise<UserDocument> {
+    const updatedClient = await this.userModel
+      .findByIdAndUpdate(
+        clientId,
+        { vendedorQueAtiende: sellerId },
+        { new: true }
+      )
+      .select('-password -twoFactorSecret -twoFactorTempSecret');
+    if (!updatedClient) {
+      throw new NotFoundException(`Cliente con ID "${clientId}" no encontrado.`);
+    }
+    return updatedClient;
+  }
+  async updateSellerToClient(clientId: string, sellerId: string): Promise<UserDocument> {
+    const updatedClient = await this.userModel
+      .findByIdAndUpdate(
+        clientId,
+        { vendedorQueAtiende: sellerId },
+        { new: false }
+      )
+      .select('-password -twoFactorSecret -twoFactorTempSecret');
+    if (!updatedClient) {
+      throw new NotFoundException(`Cliente con ID "${clientId}" no encontrado.`);
+    }
+    return updatedClient;
+  }
 }

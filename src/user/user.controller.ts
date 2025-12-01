@@ -20,6 +20,15 @@ import { Rol } from '../auth/enums/rol.enum';
 import type { ValidatedUser } from './schemas/user.schema';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { IsEnum, IsString, IsNotEmpty } from 'class-validator';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiBearerAuth,
+  ApiParam,
+  ApiConsumes
+} from '@nestjs/swagger';
 
 class UpdateRoleDto {
   @IsEnum(Rol, { message: 'El rol debe ser un valor válido del enum Rol' })
@@ -32,31 +41,61 @@ class PlayerIdDto {
   playerId: string;
 }
 
+@ApiTags('Users')
 @Controller('user')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get('all')
   @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Get all users (Admin)' })
+  @ApiResponse({ status: 200, description: 'Return all users' })
   findAll() {
     return this.userService.findAllUsers();
   }
 
   @Get('clients')
   @Roles(Rol.ADMIN, Rol.VENDEDOR)
+  @ApiOperation({ summary: 'Get all clients (Admin, Vendedor)' })
+  @ApiResponse({ status: 200, description: 'Return all clients' })
   findAllClients() {
     return this.userService.findAllClients();
   }
 
   @Get('vendedores')
   @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Get all vendedores (Admin)' })
+  @ApiResponse({ status: 200, description: 'Return all vendedores' })
   findAllVendedores() {
     return this.userService.findAllVendedores();
+  }
+  @Get('vendedores-with-num-clients')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Get all vendedores (Admin)' })
+  @ApiResponse({ status: 200, description: 'Return all vendedores' })
+  findAllVendedoresWithNumClients() {
+    return this.userService.getVendedoresOrdenadosPorClientes();
+  }
+
+  @Patch(':idClient/set-seller-to-client/:idSeller')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Update user role (Admin)' })
+  @ApiParam({ name: 'idOfClient', description: 'User ID of the client' })
+  @ApiParam({ name: 'idOfClient', description: 'User ID of the client' })
+  setSellerToClient(
+    @Param('idClient') clientId: string,
+    @Param('idSeller') sellerId: string,
+  ) {
+    return this.userService.setSellerToClient(clientId, sellerId);
   }
 
   @Patch(':id/role')
   @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Update user role (Admin)' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiBody({ schema: { type: 'object', properties: { rol: { type: 'string', enum: Object.values(Rol) } } } })
   updateRole(
     @Param('id') userId: string,
     @Body() updateRoleDto: UpdateRoleDto,
@@ -66,18 +105,24 @@ export class UserController {
 
   @Patch('admin/:id/activate')
   @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Activate user (Admin)' })
+  @ApiParam({ name: 'id', description: 'User ID' })
   activateUser(@Param('id') userId: string) {
     return this.userService.update(userId, { activo: true });
   }
 
   @Patch('admin/:id/deactivate')
   @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Deactivate user (Admin)' })
+  @ApiParam({ name: 'id', description: 'User ID' })
   deactivateUser(@Param('id') userId: string) {
     return this.userService.update(userId, { activo: false });
   }
 
   @Patch('my-player-id')
   @Roles(Rol.VENDEDOR)
+  @ApiOperation({ summary: 'Update player ID (Vendedor)' })
+  @ApiBody({ schema: { type: 'object', properties: { playerId: { type: 'string' } } } })
   updatePlayerId(
     @GetUser() user: ValidatedUser,
     @Body(ValidationPipe) dto: PlayerIdDto,
@@ -86,11 +131,15 @@ export class UserController {
   }
 
   @Get('profile')
+  @ApiOperation({ summary: 'Get own profile' })
+  @ApiResponse({ status: 200, description: 'Return profile' })
   getProfile(@GetUser() user: ValidatedUser) {
     return this.userService.getProfile(user._id.toString());
   }
 
   @Patch('profile')
+  @ApiOperation({ summary: 'Update own profile' })
+  @ApiBody({ type: UpdateProfileDto })
   updateProfile(
     @GetUser() user: ValidatedUser,
     @Body(ValidationPipe) updateProfileDto: UpdateProfileDto,
@@ -100,6 +149,19 @@ export class UserController {
 
   @Post('profile/upload-photo')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload profile photo' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   async uploadProfilePhoto(
     @GetUser() user: ValidatedUser,
     @UploadedFile() file: Express.Multer.File,

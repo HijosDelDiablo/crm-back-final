@@ -110,6 +110,30 @@ export class AuthService {
       deepLink: `smartassistant://login-success?token=${tokenData.accessToken}`,
     };
   }
+  
+  async loginConGoogleWeb(profile: any) {
+    const user = await this.validateGoogleUser(profile);
+    if (!user) {
+      throw new UnauthorizedException('No se pudo validar al usuario de Google.');
+    }
+
+    const obj = user.toObject();
+    const id = obj._id.toString();
+
+    if (obj.twoFactorEnabled) {
+      return {
+        redirect: true,
+        deepLink: `${this.configService.get<string>('FRONTEND_URL_WEB_LOGIN_SUCCESS')}?userId=${id}&type=2fa`,
+      };
+    }
+
+    const tokenData = await this._generarTokenAcceso(obj as ValidatedUser);
+
+    return {
+      redirect: true,
+      deepLink: `${this.configService.get<string>('FRONTEND_URL_WEB_LOGIN_SUCCESS')}?user=${encodeURIComponent(JSON.stringify(tokenData.user))}&token=${tokenData.accessToken}`,
+    };
+  }
 
   async autenticarCon2FA(userId: string, code: string) {
     this.logger.log(`Iniciando autenticación 2FA para usuario: ${userId}`);
