@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -104,10 +105,11 @@ export class CotizacionService {
     }
 
     const validatedUser: ValidatedUser = {
-      _id: cliente._id,
+      _id: cliente._id.toString(),
       nombre: cliente.nombre,
       email: cliente.email,
-    } as ValidatedUser;
+      rol: cliente.rol
+    };
 
     return this.generarCotizacion(
       validatedUser,
@@ -161,7 +163,7 @@ export class CotizacionService {
     const cotizacion = await this.cotizacionModel.findById(idPricing).exec();
     
     if (!cotizacion) {
-      throw new NotFoundException('Cotización no encontrada.');
+      throw new InternalServerErrorException('Cotización no encontrada.');
     }
     cotizacion.set('vendedor', idSeller);
     return cotizacion.save();
