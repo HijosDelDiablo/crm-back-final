@@ -159,7 +159,7 @@ export class AuthService {
     await usuario.save();
 
     const tokenData = await this._generarTokenAcceso(
-      usuario.toObject() as ValidatedUser,
+      {...usuario.toObject(), _id: usuario._id.toString()} as ValidatedUser,
     );
 
     return {
