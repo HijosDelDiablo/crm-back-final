@@ -28,12 +28,26 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import type { Response } from 'express';
+import { 
+  ApiTags, 
+  ApiOperation, 
+  ApiResponse, 
+  ApiBody, 
+  ApiBearerAuth,
+  ApiQuery,
+  ApiParam
+} from '@nestjs/swagger';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiResponse({ status: 201, description: 'User successfully registered' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiBody({ type: RegisterAuthDto })
   register(@Body() dto: RegisterAuthDto) {
     return this.authService.register(dto);
   }
@@ -47,16 +61,22 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(LocalAuthGuard)
   @Post('login')
+  @ApiOperation({ summary: 'Login with credentials' })
+  @ApiResponse({ status: 200, description: 'User successfully logged in' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBody({ type: LoginAuthDto })
   login(@GetUser() user: ValidatedUser) {
     return this.authService.loginConCredenciales(user);
   }
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Login with Google' })
   async googleAuth(@Req() req) {}
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Google login callback' })
   async googleAuthRedirect(@Req() req, @Res() res) {
     try {
       const result = await this.authService.loginConGoogle(req.user);
@@ -69,13 +89,15 @@ export class AuthController {
   }
   @Get('googleInWeb')
   @UseGuards(AuthGuard('googleWeb'))
+  @ApiOperation({ summary: 'Login with Google (Web)' })
   async googleAuthWeb(@Req() req) {}
 
   @Get('google/callback/web')
   @UseGuards(AuthGuard('googleWeb'))
+  @ApiOperation({ summary: 'Google login callback (Web)' })
   async googleAuthRedirectWeb(@Req() req, @Res() res) {
     try {
-      const result = await this.authService.loginConGoogle(req.user);
+      const result = await this.authService.loginConGoogleWeb(req.user);
       const redirectUrl = result?.deepLink || '/auth/error';
       return res.redirect(redirectUrl);
     } catch (error) {
@@ -86,40 +108,62 @@ export class AuthController {
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user profile' })
+  @ApiResponse({ status: 200, description: 'Return user profile' })
   profile(@GetUser() user: ValidatedUser) {
     return user;
   }
 
   @Post('2fa/generate')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Generate 2FA secret' })
+  @ApiResponse({ status: 200, description: '2FA secret generated' })
   generate2FA(@GetUser() user: ValidatedUser) {
     return this.authService.generarSecreto2FA(user);
   }
 
   @Post('2fa/turn-on')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Turn on 2FA' })
+  @ApiResponse({ status: 200, description: '2FA enabled' })
+  @ApiBody({ type: TwoFactorCodeDto })
   turnOn2FA(@GetUser() user: ValidatedUser, @Body() dto: TwoFactorCodeDto) {
     return this.authService.activar2FA(user, dto);
   }
 
   @Post('2fa/authenticate')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Authenticate with 2FA' })
+  @ApiResponse({ status: 200, description: 'Authenticated' })
+  @ApiBody({ schema: { type: 'object', properties: { userId: { type: 'string' }, code: { type: 'string' } } } })
   authenticate2FA(@Body() dto: { userId: string; code: string }) {
     return this.authService.autenticarCon2FA(dto.userId, dto.code);
   }
 
   @Post('2fa/turn-off')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Turn off 2FA' })
+  @ApiResponse({ status: 200, description: '2FA disabled' })
   turnOff2FA(@GetUser() user: ValidatedUser) {
     return this.authService.desactivar2FA(user._id);
   }
 
   @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiResponse({ status: 200, description: 'Reset email sent' })
+  @ApiBody({ type: ForgotPasswordDto })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.requestPasswordReset(dto.email);
   }
 
   @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password' })
+  @ApiResponse({ status: 200, description: 'Password reset successful' })
+  @ApiBody({ type: ResetPasswordDto })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
@@ -127,6 +171,10 @@ export class AuthController {
   @Patch('admin/assign-role/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Assign role to user (Admin)' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiBody({ type: UpdateRoleDto })
   assignRole(
     @Param('id') targetUserId: string,
     @Body() dto: UpdateRoleDto,
@@ -138,6 +186,9 @@ export class AuthController {
   @Delete('admin/delete-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete user (Admin)' })
+  @ApiParam({ name: 'id', description: 'User ID' })
   deleteUser(
     @Param('id') targetUserId: string,
     @GetUser() admin: ValidatedUser,
@@ -146,6 +197,8 @@ export class AuthController {
   }
 
   @Get('reset-password-page')
+  @ApiOperation({ summary: 'Render reset password page' })
+  @ApiQuery({ name: 'token', required: true })
   async resetPasswordPage(@Query('token') token: string, @Res() res: Response) {
     if (!token) {
       return res.status(400).send(`

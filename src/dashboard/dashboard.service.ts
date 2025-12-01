@@ -4,12 +4,16 @@ import { Model } from 'mongoose';
 import { Product } from '../product/schemas/product.schema';
 import { User } from '../user/schemas/user.schema';
 import { Cotizacion } from '../cotizacion/schemas/cotizacion.schema'; 
+import { CotizacionService } from '../cotizacion/cotizacion.service';
+import { CompraService } from '../compra/compra.service';
 
 @Injectable()
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
   constructor(
+    private cotizacionService: CotizacionService,
+    private compraService: CompraService,
     @InjectModel(Cotizacion.name) private cotizacionModel: Model<Cotizacion>,
     @InjectModel(Product.name) private productModel: Model<Product>,
     @InjectModel(User.name) private userModel: Model<User>,
@@ -21,7 +25,7 @@ export class DashboardService {
     try {
       const cotizacionesAprobadas = await this.cotizacionModel.find({
         status: 'Aprobada',
-        createdAt: {
+        fechaCreacion: {
           $gte: startDate,
           $lte: endDate,
         },
@@ -43,28 +47,7 @@ export class DashboardService {
   async getTopProductos() {
     this.logger.log('Obteniendo top productos cotizados');
     try {
-      const topProductos = await this.cotizacionModel.aggregate([
-        { $group: { _id: '$coche', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $limit: 5 },
-        {
-          $lookup: {
-            from: 'products',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'cocheDetalles',
-          },
-        },
-        { $unwind: '$cocheDetalles' },
-        {
-          $project: {
-            _id: 0,
-            nombre: { $concat: ["$cocheDetalles.marca", " ", "$cocheDetalles.modelo"] },
-            count: 1,
-          },
-        },
-      ]);
-      return topProductos;
+      return await this.cotizacionService.getTopProductos();
     } catch (error) {
       this.logger.error('Error obteniendo top productos:', error);
       throw new Error('No se pudo obtener top productos.');
@@ -93,6 +76,7 @@ export class DashboardService {
             _id: 0,
             nombre: "$vendedorDetalles.nombre",
             email: "$vendedorDetalles.email",
+            fotoPerfil: "$vendedorDetalles.fotoPerfil",
             count: 1,
           },
         },
@@ -103,4 +87,33 @@ export class DashboardService {
       throw new Error('No se pudo obtener top vendedores.');
     }
   }
-}
+
+  async getVentasPeriodo(startDateString?: string, endDateString?: string) {
+    this.logger.log(`Obteniendo ventas por periodo: ${startDateString} - ${endDateString}`);
+    // Convertir las fechas de string a Date si están definidas
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    if (startDateString) {
+      startDate = new Date(startDateString);
+    }
+    if (endDateString) {
+      endDate = new Date(endDateString);
+    }
+    try {
+      const filter: any = { status: 'Aprobada' };
+      if (startDate) {
+        filter.fechaCreacion = { ...filter.fechaCreacion, $gte: startDate };
+      }
+      if (endDate) {
+        filter.fechaCreacion = { ...filter.fechaCreacion, $lte: endDate };
+      }
+
+      const ventas = await this.compraService.getVentasPeriodo(filter);
+      return ventas;
+    } catch (error) {
+      this.logger.error('Error obteniendo ventas por periodo:', error);
+      throw new Error('No se pudo obtener ventas por periodo.');
+    }
+  }
+
+  }

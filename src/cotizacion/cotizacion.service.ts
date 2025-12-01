@@ -147,6 +147,26 @@ export class CotizacionService {
       return await cotizacion.save();
     }
 
+  
+  async getCotizacionesAll(): Promise<CotizacionDocument[]> {
+    return this.cotizacionModel
+      .find({})
+      .populate('cliente', 'nombre email telefono fotoPerfil')
+      .populate('vendedor', 'nombre email telefono fotoPerfil')
+      .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
+      .exec();
+  }
+
+  async setSellerToPricing(idPricing: string, idSeller: string) {    
+    const cotizacion = await this.cotizacionModel.findById(idPricing).exec();
+    
+    if (!cotizacion) {
+      throw new NotFoundException('Cotización no encontrada.');
+    }
+    cotizacion.set('vendedor', idSeller);
+    return cotizacion.save();
+  }
+  
   async updateCotizacionStatus(
     id: string,
     vendedor: ValidatedUser, 
@@ -301,6 +321,38 @@ export class CotizacionService {
     } catch (error) {
       console.error('Error enviando correo de resultado:', error);
       throw new Error(`No se pudo enviar el email: ${error.message}`);
+    }
+  }
+
+  async getTopProductos() {
+    try {
+      const topProductos = await this.cotizacionModel.aggregate([
+        { $match: { status: 'Aprobada'} },
+        { $group: { _id: '$coche', count: { $sum: 1 } } },
+
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: 'products',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'cocheDetalles',
+          },
+        },
+        { $unwind: '$cocheDetalles' },
+        {
+          $project: {
+            _id: 0,
+            nombre: { $concat: ["$cocheDetalles.marca", " ", "$cocheDetalles.modelo"] },
+            imagenUrl: "$cocheDetalles.imageUrl",
+            count: 1,
+          },
+        },
+      ]);
+      return topProductos;
+    } catch (error) {
+      throw new Error('No se pudo obtener top productos.');
     }
   }
 }
