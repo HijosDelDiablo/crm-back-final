@@ -117,7 +117,7 @@ export class CotizacionService {
     );
   }
   
-  async getCotizacionesPendientes(user): Promise<CotizacionDocument[]> {
+  async getCotizacionesPendientes(user: ValidatedUser): Promise<CotizacionDocument[]> {
     return this.cotizacionModel
       .find({ status: 'Pendiente', vendedor: user._id })
       .populate('cliente', 'nombre email telefono')
