@@ -90,6 +90,57 @@ export class CotizacionService {
     return cotizacionGuardada;
   }
 
+
+
+  async generarCotizacionCliente(
+    cliente: ValidatedUser,
+    cocheId: string,
+    enganche: number,
+    plazoMeses: number,
+  ): Promise<CotizacionDocument> {
+    const coche = await this.productModel.findById(cocheId);
+    if (!coche) {
+      throw new NotFoundException('El coche solicitado no existe.');
+    }
+
+    const precio = coche.precioBase;
+    if (enganche >= precio) {
+      throw new BadRequestException(
+        'El enganche debe ser menor al precio del coche.',
+      );
+    }
+
+    const montoAFinanciar = precio - enganche;
+    const tasaInteresMensual = this.TASA_INTERES_ANUAL / 12;
+
+    const i = tasaInteresMensual;
+    const n = plazoMeses;
+    const pagoMensual =
+      (montoAFinanciar * (i * Math.pow(1 + i, n))) /
+      (Math.pow(1 + i, n) - 1);
+
+    const totalPagado = pagoMensual * plazoMeses + enganche;
+
+    const nuevaCotizacion = new this.cotizacionModel({
+      cliente: cliente._id, 
+      coche: coche._id,
+      precioCoche: precio,
+      enganche: enganche,
+      plazoMeses: plazoMeses,
+      tasaInteres: this.TASA_INTERES_ANUAL,
+      pagoMensual: parseFloat(pagoMensual.toFixed(2)),
+      montoFinanciado: montoAFinanciar,
+      totalPagado: parseFloat(totalPagado.toFixed(2)),
+      status: 'Pendiente',
+    });
+
+    const cotizacionGuardada = await nuevaCotizacion.save();
+    
+    const clienteDoc = await this.userService.findById(cliente._id.toString());
+
+    return cotizacionGuardada;
+  }
+
   async vendedorGenerarCotizacion(
     dto: {
       cocheId: string,

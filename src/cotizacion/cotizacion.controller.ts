@@ -38,11 +38,11 @@ export class CotizacionController {
   @ApiResponse({ status: 201, description: 'Cotizacion generated' })
   @ApiBody({ type: CreateCotizacionDto })
   @HttpCode(HttpStatus.CREATED)
-  async generarCotizacion(
+  async generarCotizacionCliente(
     @Body() dto: CreateCotizacionDto,
     @GetUser() user: ValidatedUser,
   ) {
-    return await this.cotizacionService.generarCotizacion(
+    return await this.cotizacionService.generarCotizacionCliente(
       user,
       dto.cocheId,
       dto.enganche,
