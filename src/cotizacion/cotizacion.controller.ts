@@ -67,8 +67,10 @@ export class CotizacionController {
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
   @ApiOperation({ summary: 'Get pending cotizaciones (Vendedor, Admin)' })
   @ApiResponse({ status: 200, description: 'Return pending cotizaciones' })
-  getCotizacionesPendientes() {
-    return this.cotizacionService.getCotizacionesPendientes();
+  getCotizacionesPendientes(
+    @GetUser() user: ValidatedUser,
+  ) {
+    return this.cotizacionService.getCotizacionesPendientes(user);
   }
 
   @ApiOperation({ summary: 'Get approved cotizaciones (Vendedor, Admin)' })

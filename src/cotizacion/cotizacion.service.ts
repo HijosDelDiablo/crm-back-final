@@ -117,9 +117,9 @@ export class CotizacionService {
     );
   }
   
-  async getCotizacionesPendientes(): Promise<CotizacionDocument[]> {
+  async getCotizacionesPendientes(user): Promise<CotizacionDocument[]> {
     return this.cotizacionModel
-      .find({ status: 'Pendiente' })
+      .find({ status: 'Pendiente', vendedor: user._id })
       .populate('cliente', 'nombre email telefono')
       .populate('coche', 'marca modelo ano precioBase')
       .exec();
