@@ -32,7 +32,7 @@ import type { ValidatedUser } from '../user/schemas/user.schema';
 export class CotizacionController {
   constructor(private readonly cotizacionService: CotizacionService) {}
 
-  @Post()
+  @Post('cotizacion-create')
   @Roles(Rol.CLIENTE)
   @ApiOperation({ summary: 'Generate cotizacion (Cliente)' })
   @ApiResponse({ status: 201, description: 'Cotizacion generated' })
