@@ -1,11 +1,11 @@
-import { 
-  IsString, 
-  IsNotEmpty, 
-  IsEmail, 
-  IsBoolean, 
-  IsOptional, 
+import {
+  IsString,
+  IsNotEmpty,
+  IsEmail,
+  IsBoolean,
+  IsOptional,
   IsArray,
-  IsMongoId 
+  IsMongoId
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
