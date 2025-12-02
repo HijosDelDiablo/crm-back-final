@@ -10,6 +10,7 @@ import {
   Max,
   IsEnum,
   Length,
+  IsMongoId,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -82,6 +83,12 @@ export class CreateProductDto {
   @IsNotEmpty()
   @Length(17, 17, { message: 'El VIN debe tener exactamente 17 caracteres' })
   vin: string;
+
+  @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'ID del proveedor (optional) - ObjectId' })
+  @IsString()
+  @IsOptional()
+  @IsMongoId()
+  proveedor?: string;
 }
 
 export class UpdateProductDto extends PartialType(CreateProductDto) {

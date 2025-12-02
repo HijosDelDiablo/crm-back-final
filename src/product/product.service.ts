@@ -16,10 +16,16 @@ export class ProductService {
   private readonly s3BucketName = 'hijosdeldiablo-smartassistant-uploads';
 
   async create(dto: CreateProductDto): Promise<Product> {
-    const productData = {
+    const productData: any = {
       ...dto,
       vin: dto.vin.toUpperCase(),
     };
+
+    if (dto.proveedor) {
+      // asegurarse de guardar como ObjectId
+      productData.proveedor = new Types.ObjectId(dto.proveedor);
+    }
+
     const newProduct = new this.productModel(productData);
     return newProduct.save();
   }
