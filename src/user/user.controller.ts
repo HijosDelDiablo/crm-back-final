@@ -63,7 +63,7 @@ export class UserController {
   findAllClients() {
     return this.userService.findAllClients();
   }
-
+  
   @Get('vendedores')
   @Roles(Rol.ADMIN)
   @ApiOperation({ summary: 'Get all vendedores (Admin)' })
@@ -102,7 +102,7 @@ export class UserController {
   ) {
     return this.userService.updateUserRole(userId, updateRoleDto.rol);
   }
-
+  
   @Patch('admin/:id/activate')
   @Roles(Rol.ADMIN)
   @ApiOperation({ summary: 'Activate user (Admin)' })
@@ -110,7 +110,7 @@ export class UserController {
   activateUser(@Param('id') userId: string) {
     return this.userService.update(userId, { activo: true });
   }
-
+  
   @Patch('admin/:id/deactivate')
   @Roles(Rol.ADMIN)
   @ApiOperation({ summary: 'Deactivate user (Admin)' })
@@ -118,7 +118,7 @@ export class UserController {
   deactivateUser(@Param('id') userId: string) {
     return this.userService.update(userId, { activo: false });
   }
-
+  
   @Patch('my-player-id')
   @Roles(Rol.VENDEDOR)
   @ApiOperation({ summary: 'Update player ID (Vendedor)' })
@@ -136,7 +136,7 @@ export class UserController {
   getProfile(@GetUser() user: ValidatedUser) {
     return this.userService.getProfile(user._id.toString());
   }
-
+  
   @Patch('profile')
   @ApiOperation({ summary: 'Update own profile' })
   @ApiBody({ type: UpdateProfileDto })
@@ -146,7 +146,7 @@ export class UserController {
   ) {
     return this.userService.updateProfile(user._id.toString(), updateProfileDto);
   }
-
+  
   @Post('profile/upload-photo')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload profile photo' })
@@ -169,8 +169,8 @@ export class UserController {
     const imageUrl = `/uploads/profiles/${file.filename}`;
     return this.userService.uploadProfilePhoto(user._id.toString(), imageUrl);
   }
-
-  @Get('vendedores-con-resenas')
+  
+  @Get('complete-info-seller')
   @Roles(Rol.ADMIN, Rol.VENDEDOR, Rol.CLIENTE)
   @ApiOperation({ summary: 'Get all vendedores with their reviews and statistics' })
   @ApiResponse({ 
@@ -180,4 +180,32 @@ export class UserController {
   async getVendedoresConResenas() {
     return this.userService.getVendedoresConResenas();
   }
+  
+    @Get('clients-of-seller/:sellerId')
+    @Roles(Rol.ADMIN, Rol.VENDEDOR)
+    @ApiOperation({ summary: 'Get all clients of a seller (Admin, Vendedor)' })
+    @ApiResponse({ status: 200, description: 'Return all clients of a seller' })
+    findAllClientsOfSeller(
+      @Param('sellerId') sellerId: string,
+    ) {
+      return this.userService.findAllClientsOfSeller(sellerId);
+    }
+    @Patch(':sellerId/desactivate-seller')
+    @Roles(Rol.ADMIN, Rol.VENDEDOR)
+    @ApiOperation({ summary: 'Desactivate a seller (Admin)' })
+    @ApiResponse({ status: 200, description: 'Return status of operation' })
+    desactivateSeller(
+      @Param('sellerId') sellerId: string,
+    ) {
+      return this.userService.desactivateSeller(sellerId);
+    }
+    @Patch(':sellerId/activate-seller')
+    @Roles(Rol.ADMIN, Rol.VENDEDOR)
+    @ApiOperation({ summary: 'Activate a seller (Admin)' })
+    @ApiResponse({ status: 200, description: 'Return status of operation' })
+    activateSeller(
+      @Param('sellerId') sellerId: string,
+    ) {
+      return this.userService.activateSeller(sellerId);
+    }
 }
