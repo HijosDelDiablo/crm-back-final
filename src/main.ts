@@ -15,11 +15,14 @@ async function bootstrap() {
   );
 
   
-  const port = Number(process.env.FRONTEND_PORT ?? 2000);
+  //const port = Number(process.env.FRONTEND_PORT ?? 2000);
+  const port = 2000
+
   const backendPort = Number(process.env.PORT ?? 2002);
 
   app.enableCors({
     origin: [
+      'https://crm-smarassistant.netlify.app',
       `http://localhost:${port}`,
       `http://[::1]:${port}`,
       'http://localhost',
