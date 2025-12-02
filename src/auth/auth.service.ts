@@ -290,6 +290,7 @@ export class AuthService {
       email: u.email,
       nombre: u.nombre,
       rol: u.rol,
+      activo: u.activo,
       twoFactorEnabled: u.twoFactorEnabled,
     };
   }
