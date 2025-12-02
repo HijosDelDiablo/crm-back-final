@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -10,70 +10,6 @@ import { User, UserDocument } from '../user/schemas/user.schema';
 import { Task, TaskDocument } from '../tasks/schemas/task.schema';
 import { Gasto, GastoDocument } from '../gastos/schemas/gasto.schema';
 import { IaResponse } from './schemas/ia-response.interface';
-
-const BASE_CONTEXT = `
-DATOS DE LA EMPRESA:
-- Nombre: Autobots (CRM Automotriz del Bajío).
-- Ubicación: Blvd. Adolfo López Mateos 123, León, Gto.
-- Horario: L-V 9am-7pm, Sáb 9am-2pm.
-- Contacto Soporte: soporte@autobots.mx (Ext 505).
-- Misión: Proveer soluciones automotrices con excelencia y transparencia.
-- Valores: Honestidad, Innovación, Servicio Personalizado, Compromiso.
-- Redes sociales: @AutobotsCRM (Facebook, Instagram, LinkedIn)
-`;
-
-const VENDOR_CONTEXT = `
-ROL: Asistente Avanzado de Ventas.
-OBJETIVO: Ayudar al vendedor a cerrar tratos, revisar inventario rápido y redactar correos.
-TONO: Profesional, conciso, orientado a la acción, motivador.
-
-PARA CLIENTES (cuando el vendedor pregunta como cliente):
-- Si pregunta "ver autos" o "autos disponibles": mostrar inventario
-- Si pregunta "financiamiento": calcular financiamiento
-- Si pregunta "prueba de manejo": agendar prueba
-- Si pregunta "soporte": dar información de contacto
-- Si pregunta "mensajes": explicar comunicaciones de seguimiento
-
-PARA TAREAS INTERNAS:
-- Si pregunta "mis tareas": mostrar tareas del vendedor
-- Si pregunta "cotizaciones": mostrar cotizaciones pendientes
-- Si pregunta "reportes": mostrar ventas del mes
-- Si pregunta "clientes": mostrar lista de clientes
-`;
-
-const CLIENT_CONTEXT = `
-ROL: Concierge Virtual de Lujo.
-OBJETIVO: Enamorar al cliente de los autos, explicar financiamiento de forma sencilla y agendar citas.
-TONO: Amable, entusiasta, servicial, paciente, empático.
-
-RESPUESTAS ESPECÍFICAS PARA CLIENTES:
-1. "autos disponibles" → Mostrar inventario con vehículos en stock
-2. "financiamiento" → Calcular financiamiento con ejemplo de $300,000
-3. "prueba de manejo" → Ofrecer horarios y proceso de agendamiento
-4. "soporte" → Dar información de contacto directa
-5. "mensajes" → Explicar cómo funciona el seguimiento de ventas
-6. "ubicación" → Dar dirección y horarios
-
-PROHIBIDO PARA CLIENTES:
-- No mencionar tareas internas del personal
-- No mostrar reportes de ventas
-- No mostrar cotizaciones pendientes de otros
-- No usar lenguaje técnico interno
-`;
-
-const ADMIN_CONTEXT = `
-ROL: Gerente General / Administrador del CRM.
-OBJETIVO: Supervisar el rendimiento global, gestionar usuarios, inventario crítico y finanzas.
-TONO: Ejecutivo, directivo, estratégico, analítico, decisivo.
-
-RESPUESTAS ESPECÍFICAS PARA ADMIN:
-1. "inventario" → Mostrar análisis completo de inventario
-2. "ventas" → Reporte detallado con KPIs
-3. "gastos" → Análisis de gastos por categoría
-4. "equipo" → Rendimiento del equipo de ventas
-5. "clientes" → Base de datos de clientes con filtros
-6. "cotizaciones" → Estado de todas las cotizaciones
-`;
 
 @Injectable()
 export class IamodelService {
@@ -99,14 +35,11 @@ export class IamodelService {
       const user = await this.userModel.findById(userId).select('nombre rol');
       const userRole = user?.rol || 'CLIENTE';
       
-      // Clasificar intención BASADA EN EL ROL del usuario
       const intent = await this.classifyIntentByRole(prompt, userRole);
       
       this.logger.log(`Usuario: ${user?.nombre} (${userRole}) | Intención: ${intent.action} | Prompt: "${prompt}"`);
 
-      // Procesar según intención detectada
       switch (intent.action) {
-        // Intenciones para TODOS los roles
         case 'get_products':
           return await this.handleGetProducts(prompt, userRole);
         
@@ -122,18 +55,14 @@ export class IamodelService {
         case 'company_info':
           return await this.getCompanyInfo(intent.params?.specific);
         
-        // Intenciones solo para CLIENTES
         case 'get_messages':
           if (userRole === 'CLIENTE') {
             return await this.getClientMessages(userId);
           }
-          // Si no es cliente, redirigir a tareas
           return await this.getMyTasks(userId);
         
-        // Intenciones para VENDEDOR/ADMIN
         case 'get_my_tasks':
           if (userRole === 'CLIENTE') {
-            // Cliente pregunta por "mis tareas" → Mostrar mensajes
             return await this.getClientMessages(userId);
           }
           return await this.getMyTasks(userId, intent.params?.filter);
@@ -141,7 +70,7 @@ export class IamodelService {
         case 'get_sales_report':
           if (userRole === 'CLIENTE') {
             return { 
-              message: "Los reportes de ventas son información interna de la empresa. ¿En qué más puedo ayudarte?", 
+              message: "Los reportes de ventas son informacion interna de la empresa.", 
               type: 'text' 
             };
           }
@@ -162,7 +91,7 @@ export class IamodelService {
         case 'get_clients':
           if (userRole === 'CLIENTE') {
             return { 
-              message: "Para consultas sobre otros clientes, contacta al área de servicio al cliente.", 
+              message: "Para consultas sobre otros clientes, contacta al area de servicio al cliente.", 
               type: 'text' 
             };
           }
@@ -174,7 +103,7 @@ export class IamodelService {
         case 'get_expenses':
           if (userRole === 'CLIENTE') {
             return { 
-              message: "La información de gastos es administrativa y confidencial.", 
+              message: "La informacion de gastos es administrativa y confidencial.", 
               type: 'text' 
             };
           }
@@ -186,7 +115,7 @@ export class IamodelService {
         case 'get_performance':
           if (userRole === 'CLIENTE') {
             return { 
-              message: "Esta función está disponible solo para el equipo de ventas.", 
+              message: "Esta funcion esta disponible solo para el equipo de ventas.", 
               type: 'text' 
             };
           }
@@ -211,7 +140,7 @@ export class IamodelService {
     } catch (error) {
       this.logger.error(`Error procesando consulta: ${error.message}`, error.stack);
       return { 
-        message: "Disculpa, encontré un problema técnico. Por favor, intenta de nuevo.", 
+        message: "Disculpa, encontre un problema tecnico.", 
         type: 'text'
       };
     }
@@ -220,7 +149,6 @@ export class IamodelService {
   private async classifyIntentByRole(userPrompt: string, userRole: string): Promise<{ action: string; params?: any }> {
     const cleanPrompt = userPrompt.toLowerCase().trim();
     
-    // Primero, detectar intenciones COMUNES a todos los roles
     if (cleanPrompt.match(/(muestrame|muestra|ver|listar|lista|dame|enseña|quiero ver|necesito ver)(\s+el|\s+los|\s+las|\s+un|\s+una)?\s*(autos?|carros?|coches?|vehiculos?|vehículos?|modelos?|disponibles?|opciones?)/)) {
       return { action: 'get_products' };
     }
@@ -245,20 +173,16 @@ export class IamodelService {
       return { action: 'company_info' };
     }
     
-    // Intenciones ESPECÍFICAS por rol
     if (userRole === 'CLIENTE') {
-      // Cliente pregunta por "mensajes" o "tareas" → interpretar como consulta de seguimiento
       if (cleanPrompt.match(/(mensajes?|comunicaciones?|notificaciones?|actualizaciones?|seguimiento|respuesta|me contactaron|me llamaron|estado de mi)/)) {
         return { action: 'get_messages' };
       }
       
-      // Cliente pregunta por "mis tareas" → también interpretar como mensajes
       if (cleanPrompt.match(/(mis tareas?|mis pendientes?|mi agenda)/)) {
         return { action: 'get_messages' };
       }
       
     } else {
-      // ADMIN/VENDEDOR
       if (cleanPrompt.match(/(mis tareas?|pendientes?|por hacer|actividades|agenda|recordatorios|seguimientos)/)) {
         return { action: 'get_my_tasks', params: { filter: this.extractFilter(cleanPrompt) } };
       }
@@ -288,7 +212,6 @@ export class IamodelService {
       }
     }
     
-    // Búsqueda específica (común)
     if (cleanPrompt.match(/(busca|buscar|encontrar|tienes|hay)(.*)(mazda|honda|toyota|nissan|ford|chevrolet|audi|bmw)/i)) {
       return { action: 'search_cars', params: { keywords: userPrompt } };
     }
@@ -297,12 +220,10 @@ export class IamodelService {
       return { action: 'get_profile' };
     }
     
-    // Saludos
     if (cleanPrompt.match(/^(hola|buenos|buenas|que tal|saludos)/)) {
       return { action: 'chat' };
     }
     
-    // Fallback a chat
     return { action: 'chat' };
   }
 
@@ -357,8 +278,8 @@ export class IamodelService {
       
       if (!products.length) {
         const message = userRole === 'CLIENTE' 
-          ? "🚗 **Autos Disponibles**\n\nActualmente no tenemos vehículos en exhibición. Te recomendamos:\n\n1. **Visítanos:** Blvd. Adolfo López Mateos 123, León\n2. **Llama:** 477 123 4567 para consultar próximos ingresos\n3. **Solicita información** sobre el modelo que te interesa\n\n¿Te gustaría que te contactemos cuando lleguen nuevas unidades?"
-          : "📊 **Inventario**\n\nEl inventario está vacío. ¿Quieres agregar nuevos productos?";
+          ? "Actualmente no tenemos vehiculos en exhibicion."
+          : "El inventario esta vacio.";
         
         return { 
           message, 
@@ -367,8 +288,8 @@ export class IamodelService {
       }
       
       const message = userRole === 'CLIENTE'
-        ? `🚗 **Tenemos ${products.length} autos disponibles para ti:**\n\nAquí están nuestras mejores opciones en piso:`
-        : `📊 **Inventario disponible (${products.length} unidades)**\n\nStock actual:`;
+        ? `Tenemos ${products.length} autos disponibles para ti.`
+        : `Inventario disponible (${products.length} unidades)`;
       
       return { 
         message, 
@@ -376,19 +297,13 @@ export class IamodelService {
         data: products,
         metadata: {
           userRole,
-          total: products.length,
-          priceRange: {
-            min: Math.min(...products.map(p => p.precioBase)),
-            max: Math.max(...products.map(p => p.precioBase))
-          }
+          total: products.length
         }
       };
     } catch (error) {
       this.logger.error(`Error obteniendo productos: ${error.message}`);
       return { 
-        message: userRole === 'CLIENTE' 
-          ? "🚗 **Autos Disponibles**\n\nEn este momento no puedo mostrar el inventario. Te sugerimos:\n\n• **Visita nuestro local:** Blvd. Adolfo López Mateos 123\n• **Llama al:** 477 123 4567\n• **Horario:** L-V 9am-7pm, Sáb 9am-2pm\n\n¿Te ayudo con otra cosa?"
-          : "Error al cargar el inventario. Revisa la conexión a la base de datos.",
+        message: "Error al cargar el inventario.",
         type: 'text'
       };
     }
@@ -424,35 +339,28 @@ export class IamodelService {
       interestToPrincipal: ((totalInterest / financedAmount) * 100).toFixed(1)
     };
     
-    let message = `💰 **Simulación de Financiamiento**\n\n`;
-    message += `**Precio del vehículo:** $${price.toLocaleString()}\n`;
-    message += `**Enganche (${downPaymentPercent}%):** $${downPayment.toLocaleString()}\n`;
-    message += `**Monto a financiar:** $${financedAmount.toLocaleString()}\n`;
-    message += `**Plazo:** ${termMonths} meses (${Math.floor(termMonths/12)} años)\n`;
-    message += `**Tasa anual:** ${annualRate}%\n\n`;
-    message += `📈 **Resultados:**\n`;
-    message += `• **Pago mensual:** $${calculations.monthlyPayment.toLocaleString()}\n`;
-    message += `• **Total a pagar:** $${calculations.totalPaid.toLocaleString()}\n`;
-    message += `• **Intereses totales:** $${calculations.totalInterest.toLocaleString()}\n`;
-    message += `• **Relación intereses/capital:** ${calculations.interestToPrincipal}%\n\n`;
-    message += `**💡 Consejo:** Cada 5% adicional de enganche reduce tu mensualidad aproximadamente un 4%.\n\n`;
-    message += `**Nota:** Esta es una simulación ilustrativa. Las tasas finales dependen de tu historial crediticio.`;
+    let message = `Simulacion de Financiamiento\n\n`;
+    message += `Precio del vehiculo: $${price.toLocaleString()}\n`;
+    message += `Enganche (${downPaymentPercent}%): $${downPayment.toLocaleString()}\n`;
+    message += `Monto a financiar: $${financedAmount.toLocaleString()}\n`;
+    message += `Plazo: ${termMonths} meses\n`;
+    message += `Tasa anual: ${annualRate}%\n\n`;
+    message += `Resultados:\n`;
+    message += `Pago mensual: $${calculations.monthlyPayment.toLocaleString()}\n`;
+    message += `Total a pagar: $${calculations.totalPaid.toLocaleString()}\n`;
+    message += `Intereses totales: $${calculations.totalInterest.toLocaleString()}\n`;
     
     return {
       message,
       type: 'financing_calculation',
-      data: calculations,
-      metadata: {
-        isEstimate: true,
-        disclaimer: "Consulta con tu asesor para una cotización precisa."
-      }
+      data: calculations
     };
   }
 
   private async scheduleTestDrive(userId: string, userRole: string): Promise<IaResponse> {
     if (userRole !== 'CLIENTE') {
       return {
-        message: "Esta función es para clientes que desean agendar pruebas de manejo.",
+        message: "Esta funcion es para clientes.",
         type: 'text'
       };
     }
@@ -463,36 +371,30 @@ export class IamodelService {
     const availableSlots = [
       "Lunes 10:00 AM", "Lunes 2:00 PM",
       "Martes 11:00 AM", "Martes 4:00 PM",
-      "Miércoles 9:00 AM", "Miércoles 3:00 PM",
+      "Miercoles 9:00 AM", "Miercoles 3:00 PM",
       "Jueves 10:30 AM", "Jueves 5:00 PM",
       "Viernes 11:30 AM", "Viernes 4:30 PM",
-      "Sábado 9:30 AM", "Sábado 11:00 AM"
+      "Sabado 9:30 AM", "Sabado 11:00 AM"
     ];
     
     return {
-      message: `🚗 **Programar Prueba de Manejo**\n\n¡Perfecto ${userName}! Con gusto te ayudo a agendar una prueba de manejo.\n\n**📅 Horarios disponibles esta semana:**\n${availableSlots.map((slot, i) => `${i + 1}. ${slot}`).join('\n')}\n\n**📝 Para reservar:**\n1. Elige el horario que mejor te convenga\n2. Dime qué modelo te interesa probar\n3. Confirmaremos por teléfono\n\n**📍 Lugar:** Blvd. Adolfo López Mateos 123, León\n**📞 Contacto:** 477 123 4567\n\n¿Cuál horario te parece mejor?`,
+      message: `Programar Prueba de Manejo\n\nHorarios disponibles:\n${availableSlots.map((slot, i) => `${i + 1}. ${slot}`).join('\n')}`,
       type: 'test_drive_slots',
       data: {
         slots: availableSlots,
-        user: user?.nombre,
-        contact: user?.telefono || user?.email || 'Por confirmar'
+        user: user?.nombre
       }
     };
   }
 
   private async getSupportInfo(topic: string = 'general'): Promise<IaResponse> {
-    const supportInfo = `❓ **Centro de Ayuda - Autobots**\n\n**¿Cómo podemos ayudarte?**\n\n📞 **Contacto directo:**\n• Teléfono: 477 123 4567\n• Email: soporte@autobots.mx\n• WhatsApp: 477 123 4567\n• Extensión: 505\n\n🕒 **Horarios de atención:**\nLunes a Viernes: 9:00 AM - 7:00 PM\nSábados: 9:00 AM - 2:00 PM\n\n📍 **Visítanos:**\nBlvd. Adolfo López Mateos 123, León, Gto.\n\n**Para asistencia inmediata, te recomendamos llamar.**`;
+    const supportInfo = `Centro de Ayuda\n\nContacto directo:\nTelefono: 477 123 4567\nEmail: soporte@autobots.mx\nWhatsApp: 477 123 4567`;
     
     return {
       message: supportInfo,
       type: 'text',
       metadata: {
-        topic,
-        contactInfo: {
-          phone: '477 123 4567',
-          email: 'soporte@autobots.mx',
-          extension: '505'
-        }
+        topic
       }
     };
   }
@@ -509,7 +411,7 @@ export class IamodelService {
       
       if (!clientQuotes.length) {
         return {
-          message: "📭 **No tienes mensajes pendientes.**\n\nSi solicitaste información, nuestro equipo te contactará pronto.\n\n**¿Necesitas ayuda con algo más?**",
+          message: "No tienes mensajes pendientes.",
           type: 'text'
         };
       }
@@ -517,37 +419,26 @@ export class IamodelService {
       const pendingQuotes = clientQuotes.filter(q => q.status === 'Pendiente');
       const approvedQuotes = clientQuotes.filter(q => q.status === 'Aprobada');
       
-      let message = `📬 **Tus comunicaciones recientes**\n\n`;
+      let message = `Tus comunicaciones recientes\n\n`;
       
       if (pendingQuotes.length > 0) {
-        message += `⏳ **Cotizaciones en revisión (${pendingQuotes.length}):**\n`;
+        message += `Cotizaciones en revision (${pendingQuotes.length}):\n`;
         pendingQuotes.forEach((quote, i) => {
           if (i < 3) {
             const coche = quote.coche as any;
             const vendedor = quote.vendedor as any;
-            message += `• ${coche?.marca || ''} ${coche?.modelo || ''} - Asesor: ${vendedor?.nombre || 'Por asignar'}\n`;
+            message += `${coche?.marca || ''} ${coche?.modelo || ''} - Asesor: ${vendedor?.nombre || 'Por asignar'}\n`;
           }
         });
-        message += `\n`;
       }
       
       if (approvedQuotes.length > 0) {
-        message += `✅ **Cotizaciones aprobadas (${approvedQuotes.length}):**\n`;
+        message += `Cotizaciones aprobadas (${approvedQuotes.length}):\n`;
         approvedQuotes.slice(0, 2).forEach(quote => {
           const coche = quote.coche as any;
-          message += `• ${coche?.marca || ''} ${coche?.modelo || ''}\n`;
+          message += `${coche?.marca || ''} ${coche?.modelo || ''}\n`;
         });
-        message += `\n`;
       }
-      
-      const lastVendedor = clientQuotes[0]?.vendedor as any;
-      message += `**📞 Contacta a tu asesor:**\n`;
-      if (lastVendedor?.nombre) {
-        message += `• ${lastVendedor.nombre}\n`;
-      }
-      message += `• Teléfono: 477 123 4567\n`;
-      message += `• Email: ventas@autobots.mx\n\n`;
-      message += `**¿Quieres más información sobre alguna cotización?**`;
       
       return {
         message,
@@ -557,7 +448,7 @@ export class IamodelService {
     } catch (error) {
       this.logger.error(`Error obteniendo mensajes del cliente: ${error.message}`);
       return {
-        message: "📭 **Comunicaciones**\n\nPara consultar el estado de tus cotizaciones, contacta al área de ventas:\n\n📞 477 123 4567\n📧 ventas@autobots.mx",
+        message: "Para consultar el estado de tus cotizaciones, contacta al area de ventas.",
         type: 'text'
       };
     }
@@ -579,7 +470,7 @@ export class IamodelService {
       
       if (!tasks.length) {
         return {
-          message: "✅ **No tienes tareas pendientes.**\n\n¡Excelente trabajo manteniendo todo al día!\n\n**Sugerencia:** Puedes revisar las cotizaciones pendientes o contactar clientes prospecto.",
+          message: "No tienes tareas pendientes.",
           type: 'text'
         };
       }
@@ -594,60 +485,43 @@ export class IamodelService {
         return dueDate.getTime() === today.getTime();
       });
       
-      let message = `📋 **Tus Tareas Pendientes**\n\n`;
-      message += `**Total:** ${tasks.length} tareas\n`;
+      let message = `Tus Tareas Pendientes\n\n`;
+      message += `Total: ${tasks.length} tareas\n`;
       
       if (overdueTasks.length > 0) {
-        message += `⚠️ **Vencidas:** ${overdueTasks.length}\n`;
+        message += `Vencidas: ${overdueTasks.length}\n`;
       }
       
       if (todayTasks.length > 0) {
-        message += `📅 **Para hoy:** ${todayTasks.length}\n`;
+        message += `Para hoy: ${todayTasks.length}\n`;
       }
       
-      message += `\n**🔝 Próximas tareas:**\n`;
+      message += `Proximas tareas:\n`;
       
       tasks.slice(0, 3).forEach((task, i) => {
         const dueDate = new Date(task.dueDate);
-        const isOverdue = dueDate < today;
-        const isToday = dueDate.toDateString() === today.toDateString();
-        
-        let status = '';
-        if (isOverdue) status = ' [VENCIDA]';
-        else if (isToday) status = ' [HOY]';
-        
-        message += `${i + 1}. ${task.title}${status}\n`;
+        message += `${i + 1}. ${task.title}\n`;
         if (task.cliente) {
           const cliente = task.cliente as any;
-          message += `   👤 ${cliente.nombre || 'Cliente'}\n`;
+          message += `   ${cliente.nombre || 'Cliente'}\n`;
         }
-        message += `   📅 Vence: ${dueDate.toLocaleDateString()}\n`;
-        
-        if (task.priority === 'alta') {
-          message += `   🚨 PRIORIDAD ALTA\n`;
-        }
+        message += `   Vence: ${dueDate.toLocaleDateString()}\n`;
         message += `\n`;
       });
       
       if (tasks.length > 3) {
-        message += `*... y ${tasks.length - 3} tareas más.*\n`;
+        message += `y ${tasks.length - 3} tareas mas.\n`;
       }
       
       return {
         message,
         type: 'tasks_list',
-        data: tasks,
-        metadata: {
-          total: tasks.length,
-          overdue: overdueTasks.length,
-          today: todayTasks.length,
-          nextDue: tasks[0]?.dueDate
-        }
+        data: tasks
       };
     } catch (error) {
       this.logger.error(`Error obteniendo tareas: ${error.message}`);
       return { 
-        message: "Error al cargar tus tareas. Intenta de nuevo.", 
+        message: "Error al cargar tus tareas.", 
         type: 'text' 
       };
     }
@@ -664,50 +538,37 @@ export class IamodelService {
       
       if (!cotizaciones.length) {
         return {
-          message: "✅ **Todas las cotizaciones están procesadas.**\n\nNo hay cotizaciones pendientes de revisión.",
+          message: "Todas las cotizaciones estan procesadas.",
           type: 'text'
         };
       }
       
       const totalValue = cotizaciones.reduce((sum, quote) => sum + (quote.totalPagado || 0), 0);
       
-      let message = `📋 **Cotizaciones Pendientes de Aprobación**\n\n`;
-      message += `**Total:** ${cotizaciones.length} cotizaciones\n`;
-      message += `**Valor pendiente:** $${totalValue.toLocaleString()}\n\n`;
+      let message = `Cotizaciones Pendientes de Aprobacion\n\n`;
+      message += `Total: ${cotizaciones.length} cotizaciones\n`;
+      message += `Valor pendiente: $${totalValue.toLocaleString()}\n`;
       
-      message += `**📊 Resumen por vendedor:**\n`;
-      const byVendor: Record<string, number> = {};
-      cotizaciones.forEach(quote => {
-        const vendedor = quote.vendedor as any;
-        const vendorName = vendedor?.nombre || 'Sin asignar';
-        byVendor[vendorName] = (byVendor[vendorName] || 0) + 1;
+      // CORRECCIÓN: Usar get() para acceder a propiedades de timestamps
+      const dates = cotizaciones.map(q => {
+        const createdAt = q.get('createdAt') as Date;
+        return createdAt ? createdAt.getTime() : Date.now();
       });
       
-      Object.entries(byVendor).forEach(([vendor, count]) => {
-        message += `• ${vendor}: ${count} cotizaciones\n`;
-      });
-      
-      const oldestDate = new Date(Math.min(...cotizaciones.map(q => q.createdAt.getTime())));
+      const oldestDate = new Date(Math.min(...dates));
       const daysOld = Math.floor((Date.now() - oldestDate.getTime()) / (1000 * 60 * 60 * 24));
       
-      message += `\n**⏳ La más antigua tiene:** ${daysOld} días\n`;
-      message += `\n**💡 Recomendación:** Revisa primero las más antiguas para mejor servicio.`;
+      message += `La mas antigua tiene: ${daysOld} dias\n`;
       
       return {
         message,
         type: 'cotizaciones_table',
-        data: cotizaciones,
-        metadata: {
-          count: cotizaciones.length,
-          totalValue,
-          vendors: Object.keys(byVendor),
-          oldest: oldestDate
-        }
+        data: cotizaciones
       };
     } catch (error) {
       this.logger.error(`Error obteniendo cotizaciones: ${error.message}`);
       return { 
-        message: "Error al cargar las cotizaciones. Intenta de nuevo.", 
+        message: "Error al cargar las cotizaciones.", 
         type: 'text' 
       };
     }
@@ -726,33 +587,29 @@ export class IamodelService {
       
       if (!myPendingQuotes.length) {
         return {
-          message: "✅ **No tienes cotizaciones pendientes.**\n\n¡Excelente trabajo manteniendo al día tus procesos!",
+          message: "No tienes cotizaciones pendientes.",
           type: 'text'
         };
       }
       
-      const oldestDate = new Date(Math.min(...myPendingQuotes.map(q => q.createdAt.getTime())));
+      // CORRECCIÓN: Usar get() para acceder a propiedades de timestamps
+      const dates = myPendingQuotes.map(q => {
+        const createdAt = q.get('createdAt') as Date;
+        return createdAt ? createdAt.getTime() : Date.now();
+      });
+      
+      const oldestDate = new Date(Math.min(...dates));
       const daysOld = Math.floor((Date.now() - oldestDate.getTime()) / (1000 * 60 * 60 * 24));
       
       return {
-        message: `📝 **Tus Cotizaciones Pendientes**\n\nTienes **${myPendingQuotes.length}** cotizaciones pendientes.\nLa más antigua tiene **${daysOld} días**.\n\n**Recomendación:** Contacta a los clientes de las cotizaciones más antiguas.`,
+        message: `Tus Cotizaciones Pendientes\n\nTienes ${myPendingQuotes.length} cotizaciones pendientes.\nLa mas antigua tiene ${daysOld} dias.`,
         type: 'cotizaciones_table',
-        data: myPendingQuotes,
-        metadata: {
-          count: myPendingQuotes.length,
-          oldestDays: daysOld,
-          clientes: myPendingQuotes
-            .map(q => {
-              const cliente = q.cliente as any;
-              return cliente?.nombre;
-            })
-            .filter(Boolean)
-        }
+        data: myPendingQuotes
       };
     } catch (error) {
       this.logger.error(`Error obteniendo cotizaciones del vendedor: ${error.message}`);
       return { 
-        message: "Error al cargar tus cotizaciones. Intenta de nuevo.", 
+        message: "Error al cargar tus cotizaciones.", 
         type: 'text' 
       };
     }
@@ -762,22 +619,18 @@ export class IamodelService {
     try {
       let query: any = { rol: 'CLIENTE' };
       let sort: any = { createdAt: -1 };
-      let message = "👥 **Base de Clientes**\n\n";
       
       switch(filter) {
         case 'new':
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           query.createdAt = { $gte: thirtyDaysAgo };
-          message = "**Clientes Nuevos** (últimos 30 días)\n\n";
           break;
         case 'active':
           query.ultimoContacto = { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) };
-          message = "**Clientes Activos** (contacto en últimos 90 días)\n\n";
           break;
         case 'inactive':
           query.ultimoContacto = { $lt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) };
-          message = "**Clientes Inactivos** (sin contacto en 6+ meses)\n\n";
           break;
       }
       
@@ -788,48 +641,41 @@ export class IamodelService {
       
       if (!clients.length) {
         return {
-          message: message + "No hay clientes que coincidan con este filtro.",
+          message: "No hay clientes que coincidan con este filtro.",
           type: 'text'
         };
       }
       
       const newClients = clients.filter(client => {
-        const createdAt = client.get('createdAt');
-        const daysAgo = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+        const createdAt = client.get('createdAt') as Date;
+        const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
         return daysAgo <= 30;
       });
       
-      message += `**Total:** ${clients.length} clientes\n`;
-      message += `**Nuevos (30 días):** ${newClients.length}\n\n`;
-      message += `**👋 Clientes más recientes:**\n`;
+      let message = `Base de Clientes\n\n`;
+      message += `Total: ${clients.length} clientes\n`;
+      message += `Nuevos (30 dias): ${newClients.length}\n\n`;
+      message += `Clientes mas recientes:\n`;
       clients.slice(0, 5).forEach((client, i) => {
-        const createdAt = client.get('createdAt');
-        const daysAgo = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+        const createdAt = client.get('createdAt') as Date;
+        const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
         message += `${i + 1}. ${client.nombre}\n`;
-        if ((client as any).ciudad) message += `   📍 ${(client as any).ciudad}\n`;
-        if (client.telefono) message += `   📞 ${client.telefono}\n`;
-        message += `   📅 Registrado hace ${daysAgo} días\n\n`;
-      });
+        message += `   Registrado hace ${daysAgo} dias\n\n`;
       });
       
       if (clients.length > 5) {
-        message += `*... y ${clients.length - 5} clientes más.*\n`;
+        message += `y ${clients.length - 5} clientes mas.\n`;
       }
       
       return {
         message,
         type: 'clients_list',
-        data: clients,
-        metadata: {
-          filter,
-          total: clients.length,
-          newLast30d: newClients.length
-        }
+        data: clients
       };
     } catch (error) {
       this.logger.error(`Error obteniendo clientes: ${error.message}`);
       return { 
-        message: "Error al cargar la lista de clientes. Intenta de nuevo.", 
+        message: "Error al cargar la lista de clientes.", 
         type: 'text' 
       };
     }
@@ -866,7 +712,7 @@ export class IamodelService {
       
       if (!myClients.length) {
         return {
-          message: "👤 **Tus Clientes**\n\nAún no tienes clientes asignados. Empieza a crear cotizaciones para verlos aquí.",
+          message: "Aun no tienes clientes asignados.",
           type: 'text'
         };
       }
@@ -877,22 +723,17 @@ export class IamodelService {
       });
       
       return {
-        message: `👥 **Tu Lista de Clientes**\n\n**Total:** ${myClients.length} clientes\n**Contacto reciente (30 días):** ${clientsWithRecentContact.length}\n\n**Recomendación:** Contacta a los clientes con más de 30 días sin seguimiento.`,
+        message: `Tu Lista de Clientes\n\nTotal: ${myClients.length} clientes\nContacto reciente (30 dias): ${clientsWithRecentContact.length}`,
         type: 'clients_list',
         data: myClients.map(client => ({
           ...client,
           clienteInfo: client.clienteInfo[0]
-        })),
-        metadata: {
-          total: myClients.length,
-          active: clientsWithRecentContact.length,
-          needsFollowUp: myClients.length - clientsWithRecentContact.length
-        }
+        }))
       };
     } catch (error) {
       this.logger.error(`Error obteniendo clientes del vendedor: ${error.message}`);
       return { 
-        message: "Error al cargar tus clientes. Intenta de nuevo.", 
+        message: "Error al cargar tus clientes.", 
         type: 'text' 
       };
     }
@@ -902,26 +743,21 @@ export class IamodelService {
     try {
       const now = new Date();
       let startDate: Date;
-      let message = "";
       
       switch(period) {
         case 'day':
           startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          message = "📊 **Reporte de Ventas - Hoy**\n\n";
           break;
         case 'week':
           const dayOfWeek = now.getDay();
           const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
           startDate = new Date(now.setDate(diff));
-          message = "📊 **Reporte de Ventas - Esta Semana**\n\n";
           break;
         case 'year':
           startDate = new Date(now.getFullYear(), 0, 1);
-          message = "📊 **Reporte de Ventas - Este Año**\n\n";
           break;
         default:
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          message = "📊 **Reporte de Ventas - Este Mes**\n\n";
           break;
       }
       
@@ -949,7 +785,7 @@ export class IamodelService {
       };
       
       return {
-        message: `${message}**Ventas Totales:** $${data.totalVendido.toLocaleString()}\n**Unidades Vendidas:** ${data.count}\n**Ticket Promedio:** $${Math.round(data.avgTicket).toLocaleString()}`,
+        message: `Reporte de Ventas\n\nVentas Totales: $${data.totalVendido.toLocaleString()}\nUnidades Vendidas: ${data.count}\nTicket Promedio: $${Math.round(data.avgTicket).toLocaleString()}`,
         type: 'kpi_dashboard',
         data: {
           period,
@@ -961,7 +797,7 @@ export class IamodelService {
     } catch (error) {
       this.logger.error(`Error obteniendo reporte de ventas: ${error.message}`);
       return { 
-        message: "Error al generar el reporte de ventas. Intenta de nuevo.", 
+        message: "Error al generar el reporte de ventas.", 
         type: 'text' 
       };
     }
@@ -1014,7 +850,7 @@ export class IamodelService {
       };
       
       return {
-        message: `📊 **Tus Ventas (${period})**\n\n**Total Vendido:** $${data.totalVendido.toLocaleString()}\n**Vehículos:** ${data.count}\n**Ticket Promedio:** $${Math.round(data.avgTicket).toLocaleString()}`,
+        message: `Tus Ventas\n\nTotal Vendido: $${data.totalVendido.toLocaleString()}\nVehiculos: ${data.count}\nTicket Promedio: $${Math.round(data.avgTicket).toLocaleString()}`,
         type: 'kpi_dashboard_vendor',
         data: {
           period,
@@ -1026,7 +862,7 @@ export class IamodelService {
     } catch (error) {
       this.logger.error(`Error obteniendo reporte de ventas del vendedor: ${error.message}`);
       return { 
-        message: "Error al cargar tus ventas. Intenta de nuevo.", 
+        message: "Error al cargar tus ventas.", 
         type: 'text' 
       };
     }
@@ -1052,37 +888,26 @@ export class IamodelService {
       
       if (!gastos.length) {
         return { 
-          message: "💰 **Gastos**\n\nNo hay gastos registrados con ese filtro.", 
+          message: "No hay gastos registrados con ese filtro.", 
           type: 'text'
         };
       }
       
       const total = gastos.reduce((acc, curr) => acc + (curr.monto || 0), 0);
       
-      let message = `💰 **Reporte de Gastos**\n\n`;
-      message += `**Total:** $${total.toLocaleString()}\n`;
-      message += `**Registros:** ${gastos.length}\n`;
-      
-      message += `\n**💡 Recomendación:** `;
-      if (total > 50000) {
-        message += `Los gastos están altos. Revisa categorías principales.`;
-      } else {
-        message += `Gastos dentro del presupuesto esperado.`;
-      }
+      let message = `Reporte de Gastos\n\n`;
+      message += `Total: $${total.toLocaleString()}\n`;
+      message += `Registros: ${gastos.length}\n`;
       
       return {
         message: message,
         type: 'expenses_table',
-        data: gastos,
-        metadata: {
-          total,
-          count: gastos.length
-        }
+        data: gastos
       };
     } catch (error) {
       this.logger.error(`Error obteniendo gastos: ${error.message}`);
       return { 
-        message: "Error al cargar los gastos. Intenta de nuevo.", 
+        message: "Error al cargar los gastos.", 
         type: 'text' 
       };
     }
@@ -1095,20 +920,17 @@ export class IamodelService {
       
       if (!user) {
         return {
-          message: "Usuario no encontrado. Por favor, verifica tu sesión.",
+          message: "Usuario no encontrado.",
           type: 'text'
         };
       }
       
-      let message = `👤 **Tu Perfil**\n\n`;
-      message += `**Nombre:** ${user.nombre}\n`;
-      message += `**Rol:** ${user.rol}\n`;
-      message += `**Email:** ${user.email}\n`;
+      let message = `Tu Perfil\n\n`;
+      message += `Nombre: ${user.nombre}\n`;
+      message += `Rol: ${user.rol}\n`;
+      message += `Email: ${user.email}\n`;
       
-      if (user.telefono) message += `**Teléfono:** ${user.telefono}\n`;
-      
-      const createdDate = (user as any).createdAt ? new Date((user as any).createdAt).toLocaleDateString() : 'No disponible';
-      message += `**Miembro desde:** ${createdDate}\n`;
+      if (user.telefono) message += `Telefono: ${user.telefono}\n`;
       
       if (user.rol === 'VENDEDOR' || user.rol === 'ADMIN') {
         const monthlyStats = await this.cotizacionModel.aggregate([
@@ -1131,9 +953,9 @@ export class IamodelService {
         ]);
         
         const stats = monthlyStats[0] || { totalSales: 0, count: 0 };
-        message += `\n**📊 Este mes:**\n`;
-        message += `• Ventas: $${stats.totalSales.toLocaleString()}\n`;
-        message += `• Vehículos: ${stats.count}\n`;
+        message += `Este mes:\n`;
+        message += `Ventas: $${stats.totalSales.toLocaleString()}\n`;
+        message += `Vehiculos: ${stats.count}\n`;
       }
       
       return {
@@ -1144,41 +966,14 @@ export class IamodelService {
     } catch (error) {
       this.logger.error(`Error obteniendo perfil: ${error.message}`);
       return { 
-        message: "Error al cargar tu perfil. Intenta de nuevo.", 
+        message: "Error al cargar tu perfil.", 
         type: 'text' 
       };
     }
   }
 
   private async getCompanyInfo(specific?: string): Promise<IaResponse> {
-    const companyInfo = `
-🏢 **Autobots - CRM Automotriz del Bajío**
-
-📍 **Ubicación:**
-Blvd. Adolfo López Mateos 123, León, Guanajuato
-(Cerca de Plaza Mayor)
-
-🕒 **Horarios:**
-Lunes a Viernes: 9:00 AM - 7:00 PM
-Sábados: 9:00 AM - 2:00 PM
-Domingos: Cerrado
-
-📞 **Contacto:**
-• Teléfono: 477 123 4567
-• Soporte: soporte@autobots.mx (Ext. 505)
-• Ventas: ventas@autobots.mx (Ext. 501-504)
-• WhatsApp: 477 123 4567
-
-🚗 **Servicios:**
-1. Venta de autos nuevos y seminuevos
-2. Financiamiento automotriz
-3. Seguros y garantías
-4. Servicio de mantenimiento
-5. Evaluación de usados
-
-💡 **¿Necesitas ayuda específica?**
-`;
-
+    const companyInfo = `Autobots - CRM Automotriz del Bajio\n\nUbicacion:\nBlvd. Adolfo Lopez Mateos 123, Leon, Guanajuato\n\nHorarios:\nLunes a Viernes: 9:00 AM - 7:00 PM\nSabados: 9:00 AM - 2:00 PM\n\nContacto:\nTelefono: 477 123 4567\nSoporte: soporte@autobots.mx`;
     return { 
       message: companyInfo, 
       type: 'text' 
@@ -1218,7 +1013,7 @@ Domingos: Cerrado
       
       if (!performanceData.length) {
         return {
-          message: "📊 **Rendimiento del Equipo**\n\nNo hay datos de ventas en los últimos 30 días.",
+          message: "No hay datos de ventas en los ultimos 30 dias.",
           type: 'text'
         };
       }
@@ -1227,30 +1022,22 @@ Domingos: Cerrado
       const topPerformer = performanceData[0];
       const topName = topPerformer.vendedorInfo?.[0]?.nombre || 'Vendedor';
       
-      let message = `🏆 **Rendimiento del Equipo (Últimos 30 días)**\n\n`;
-      message += `**Ventas totales del equipo:** $${totalTeamSales.toLocaleString()}\n`;
-      message += `**Vendedores activos:** ${performanceData.length}\n\n`;
-      message += `**Top Performer:**\n`;
+      let message = `Rendimiento del Equipo (Ultimos 30 dias)\n\n`;
+      message += `Ventas totales del equipo: $${totalTeamSales.toLocaleString()}\n`;
+      message += `Vendedores activos: ${performanceData.length}\n\n`;
+      message += `Top Performer:\n`;
       message += `${topName}\n`;
-      message += `• Ventas: $${topPerformer.totalSales.toLocaleString()}\n`;
-      message += `• Unidades: ${topPerformer.saleCount}\n`;
-      message += `• Ticket promedio: $${Math.round(topPerformer.avgTicket).toLocaleString()}\n`;
+      message += `Ventas: $${topPerformer.totalSales.toLocaleString()}\n`;
       
       return {
         message,
         type: 'team_performance',
-        data: performanceData,
-        metadata: {
-          period: '30_days',
-          totalTeamSales,
-          averagePerVendor: totalTeamSales / performanceData.length,
-          topPerformer: topName
-        }
+        data: performanceData
       };
     } catch (error) {
       this.logger.error(`Error obteniendo rendimiento del equipo: ${error.message}`);
       return { 
-        message: "Error al cargar el rendimiento del equipo. Intenta de nuevo.", 
+        message: "Error al cargar el rendimiento del equipo.", 
         type: 'text' 
       };
     }
@@ -1282,14 +1069,14 @@ Domingos: Cerrado
       const stats = myStats[0] || { totalSales: 0, saleCount: 0, avgTicket: 0 };
       
       return {
-        message: `📈 **Tu Rendimiento (Últimos 30 días)**\n\n**Ventas Totales:** $${stats.totalSales.toLocaleString()}\n**Vehículos Vendidos:** ${stats.saleCount}\n**Ticket Promedio:** $${Math.round(stats.avgTicket).toLocaleString()}\n\n**💡 Consejo:** Mantén el contacto con clientes prospecto para aumentar tus ventas.`,
+        message: `Tu Rendimiento (Ultimos 30 dias)\n\nVentas Totales: $${stats.totalSales.toLocaleString()}\nVehiculos Vendidos: ${stats.saleCount}\nTicket Promedio: $${Math.round(stats.avgTicket).toLocaleString()}`,
         type: 'personal_performance',
         data: stats
       };
     } catch (error) {
       this.logger.error(`Error obteniendo rendimiento personal: ${error.message}`);
       return { 
-        message: "Error al cargar tu rendimiento. Intenta de nuevo.", 
+        message: "Error al cargar tu rendimiento.", 
         type: 'text' 
       };
     }
@@ -1312,14 +1099,14 @@ Domingos: Cerrado
       const totalInventoryValue = inventory.reduce((sum, cat) => sum + cat.totalValue, 0);
       const totalStock = inventory.reduce((sum, cat) => sum + cat.totalStock, 0);
       
-      let message = `📦 **Análisis de Inventario**\n\n`;
-      message += `**Valor total del inventario:** $${totalInventoryValue.toLocaleString()}\n`;
-      message += `**Total de unidades:** ${totalStock}\n\n`;
-      message += `**Por Categoría:**\n`;
+      let message = `Analisis de Inventario\n\n`;
+      message += `Valor total del inventario: $${totalInventoryValue.toLocaleString()}\n`;
+      message += `Total de unidades: ${totalStock}\n\n`;
+      message += `Por Categoria:\n`;
       
       inventory.forEach(cat => {
         const percentage = (cat.totalValue / totalInventoryValue * 100).toFixed(1);
-        message += `• ${cat._id}: ${cat.totalStock} unidades (${percentage}% del valor)\n`;
+        message += `${cat._id}: ${cat.totalStock} unidades (${percentage}% del valor)\n`;
       });
       
       return {
@@ -1329,15 +1116,14 @@ Domingos: Cerrado
           categories: inventory,
           totals: {
             value: totalInventoryValue,
-            stock: totalStock,
-            categories: inventory.length
+            stock: totalStock
           }
         }
       };
     } catch (error) {
-      this.logger.error(`Error obteniendo análisis de inventario: ${error.message}`);
+      this.logger.error(`Error obteniendo analisis de inventario: ${error.message}`);
       return { 
-        message: "Error al generar el análisis de inventario. Intenta de nuevo.", 
+        message: "Error al generar el analisis de inventario.", 
         type: 'text' 
       };
     }
@@ -1374,30 +1160,20 @@ Domingos: Cerrado
       
       if (!cars.length) {
         return {
-          message: `🔍 **No encontré "${safeKeywords}" en stock.**\n\nTe sugiero visitarnos o llamar al 477 123 4567 para consultar disponibilidad.`,
-          type: 'text',
-          metadata: {
-            originalSearch: safeKeywords,
-            isAlternative: true,
-            userRole
-          }
+          message: `No encontre "${safeKeywords}" en stock.`,
+          type: 'text'
         };
       }
       
       return {
-        message: `🎯 **Encontré ${cars.length} resultados para "${safeKeywords}":**`,
+        message: `Encontre ${cars.length} resultados para "${safeKeywords}":`,
         type: 'products_grid',
-        data: cars,
-        metadata: {
-          searchQuery: safeKeywords,
-          userRole,
-          count: cars.length
-        }
+        data: cars
       };
     } catch (error) {
       this.logger.error(`Error buscando autos: ${error.message}`);
       return { 
-        message: "Error al buscar en el inventario. Intenta de nuevo.", 
+        message: "Error al buscar en el inventario.", 
         type: 'text' 
       };
     }
@@ -1408,102 +1184,27 @@ Domingos: Cerrado
       const user = await this.userModel.findById(userId).select('nombre rol');
       const userName = user ? user.nombre.split(' ')[0] : 'Usuario';
       
-      let roleContext = '';
-      let systemPrompt = '';
+      let systemPrompt = `Eres un asistente de una concesionaria de autos. Usuario: ${userName} (${userRole}).`;
       
-      if (userRole === 'ADMIN') {
-        roleContext = ADMIN_CONTEXT;
-        systemPrompt = `
-          ${BASE_CONTEXT}
-          ${roleContext}
-          
-          USUARIO ACTUAL: ${userName} (${userRole}).
-          
-          RESPUESTAS PARA ADMIN:
-          - Sé ejecutivo y directo
-          - Enfócate en datos, métricas y KPIs
-          - Ofrece recomendaciones estratégicas
-          - Usa lenguaje profesional
-          
-          NO uses emojis excesivos.
-        `;
-      } else if (userRole === 'VENDEDOR') {
-        roleContext = VENDOR_CONTEXT;
-        systemPrompt = `
-          ${BASE_CONTEXT}
-          ${roleContext}
-          
-          USUARIO ACTUAL: ${userName} (${userRole}).
-          
-          RESPUESTAS PARA VENDEDOR:
-          - Sé práctico y orientado a resultados
-          - Sugiere estrategias de venta concretas
-          - Ayuda con seguimiento de clientes
-          - Mantén energía positiva
-          
-          Usa algunos emojis relevantes.
-        `;
-      } else {
-        roleContext = CLIENT_CONTEXT;
-        systemPrompt = `
-          ${BASE_CONTEXT}
-          ${roleContext}
-          
-          USUARIO ACTUAL: ${userName} (Cliente potencial).
-          
-          RESPUESTAS PARA CLIENTE:
-          - Sé amable, entusiasta y servicial
-          - Explica cosas en lenguaje simple
-          - Ofrece opciones concretas
-          - Invita a la acción (visitar, llamar, agendar)
-          - NO hables de tareas internas, reportes, o cotizaciones de otros
-          
-          Usa emojis para hacerlo más cercano 😊
-        `;
-      }
-      
-      const response = await this.callOllamaEnhanced(systemPrompt, prompt, userRole);
-      return { 
-        message: response, 
-        type: 'text',
-        metadata: {
-          userRole,
-          userName
+      const payload = {
+        model: this.model,
+        messages: [
+          { 
+            role: 'system', 
+            content: systemPrompt 
+          },
+          { 
+            role: 'user', 
+            content: prompt 
+          }
+        ],
+        stream: false,
+        options: { 
+          num_predict: 200,
+          temperature: 0.7
         }
       };
-    } catch (error) {
-      this.logger.error(`Error en chat con IA: ${error.message}`);
-      return { 
-        message: userRole === 'CLIENTE' 
-          ? "Disculpa, estoy teniendo dificultades. ¿Podrías llamar al 477 123 4567 para asistencia inmediata?"
-          : "Error de conexión con la IA. Intenta de nuevo o consulta los datos directamente.",
-        type: 'text'
-      };
-    }
-  }
 
-  private async callOllamaEnhanced(system: string, user: string, userRole: string): Promise<string> {
-    const payload = {
-      model: this.model,
-      messages: [
-        { 
-          role: 'system', 
-          content: system 
-        },
-        { 
-          role: 'user', 
-          content: user 
-        }
-      ],
-      stream: false,
-      options: { 
-        num_predict: 200,
-        temperature: userRole === 'CLIENTE' ? 0.7 : 0.4,
-        top_p: 0.9
-      }
-    };
-
-    try {
       const response = await firstValueFrom(
         this.httpService.post(`${this.ollamaHost}/api/chat`, payload, { 
           timeout: 30000 
@@ -1511,17 +1212,21 @@ Domingos: Cerrado
       );
       
       if (response.data?.message?.content) {
-        return response.data.message.content;
+        return { 
+          message: response.data.message.content, 
+          type: 'text'
+        };
       }
-      return "Disculpa, no pude procesar tu solicitud. ¿Podrías intentar de nuevo?";
+      return { 
+        message: "Disculpa, no pude procesar tu solicitud.", 
+        type: 'text'
+      };
     } catch (error) {
-      this.logger.error(`Error calling Ollama: ${error.message}`);
-      
-      if (userRole === 'CLIENTE') {
-        return "Disculpa, estoy teniendo dificultades técnicas. ¿Podrías intentar tu pregunta de nuevo o contactar a nuestro equipo de soporte? 😊";
-      } else {
-        return "Error de conexión con la IA. Intenta de nuevo o consulta los datos directamente.";
-      }
+      this.logger.error(`Error en chat con IA: ${error.message}`);
+      return { 
+        message: "Error de conexion con la IA.", 
+        type: 'text'
+      };
     }
   }
 }
