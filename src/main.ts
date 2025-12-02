@@ -24,6 +24,8 @@ async function bootstrap() {
       `http://[::1]:${port}`,
       'http://localhost',
       `http://10.0.2.2:${port}`,
+      'http://localhost:5173',
+      'http://localhost:4173',
       'http://10.0.2.2',
       `http://192.168.1.40:${port}`,
       'http://192.168.1.40',
@@ -46,7 +48,6 @@ async function bootstrap() {
     optionsSuccessStatus: 204
   });
 
-  // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('Smart Assistant CRM')
     .setDescription('Smart Assistant CRM API')

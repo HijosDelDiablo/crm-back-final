@@ -14,7 +14,7 @@ export class IamodelController {
   constructor(private readonly iamodelService: IamodelService) {}
 
   @Post('query')
-  @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  @Roles(Rol.VENDEDOR, Rol.ADMIN, Rol.CLIENTE)
   async query(@Body() dto: IaQueryDto, @GetUser() user: ValidatedUser) {
     return this.iamodelService.processQuery(dto.prompt, user._id);
   }
