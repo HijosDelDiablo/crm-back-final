@@ -7,8 +7,10 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
-  
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+  ) { }
+
   async findByEmailWithPassword(email: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ email }).select('+password').exec();
   }
@@ -81,7 +83,7 @@ export class UserService {
       .select('-password -twoFactorSecret -twoFactorTempSecret')
       .populate('vendedorQueAtiende', 'nombre email fotoPerfil')
       .sort({ nombre: 1 })
-      .exec();      
+      .exec();
     return clients;
   }
 
@@ -145,33 +147,40 @@ export class UserService {
 
   async getVendedoresOrdenadosPorClientes(): Promise<UserDocument[]> {
     try {
-        const vendedores = await this.userModel.aggregate([
-            {
-                $match: { rol: 'VENDEDOR' }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: '_id',
-                    foreignField: 'vendedorQueAtiende',
-                    as: 'clientesAsignados'
-                }
-            },
-            {
-                $addFields: {
-                    cantidadClientes: { $size: '$clientesAsignados' }
-                }
-            },
-            {
-                $sort: { cantidadClientes: 1 }
-            }
-        ]);
+      const vendedores = await this.userModel.aggregate([
+        {
+          $match: { rol: 'VENDEDOR' }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: 'vendedorQueAtiende',
+            as: 'clientesAsignados'
+          }
+        },
+        {
+          $addFields: {
+            cantidadClientes: { $size: '$clientesAsignados' }
+          }
+        },
+        {
+          $sort: { cantidadClientes: 1 }
+        }
+      ]);
 
-        return vendedores;
+      return vendedores;
     } catch (error) {
-        //this.logger.error('Error obteniendo vendedores ordenados por clientes:', error);
-        throw new Error('No se pudo obtener la lista de vendedores.');
+      //this.logger.error('Error obteniendo vendedores ordenados por clientes:', error);
+      throw new Error('No se pudo obtener la lista de vendedores.');
     }
+  }
+  async findAllClientsOfSeller(idSeller: string): Promise<UserDocument[]> {
+    const clients = await this.userModel.find({ rol: Rol.CLIENTE, vendedorQueAtiende: idSeller })
+      .select('-password -twoFactorSecret -twoFactorTempSecret')
+      .sort({ nombre: 1 })
+      .exec();
+    return clients;
   }
   async setSellerToClient(clientId: string, sellerId: string): Promise<UserDocument> {
     const updatedClient = await this.userModel
@@ -198,5 +207,129 @@ export class UserService {
       throw new NotFoundException(`Cliente con ID "${clientId}" no encontrado.`);
     }
     return updatedClient;
+  }
+
+  async getVendedoresConResenas(): Promise<any[]> {
+    try {
+      const vendedores = await this.userModel.aggregate([
+        {
+          $match: { rol: 'VENDEDOR' }
+        },
+        {
+          $lookup: {
+            from: 'sellerreviews',
+            localField: '_id',
+            foreignField: 'vendedorId',
+            as: 'resenas'
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            let: { vendedorId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$rol', 'CLIENTE'] },
+                      { $eq: ['$vendedorQueAtiende', '$$vendedorId'] }
+                    ]
+                  }
+                }
+              },
+              { $limit: 3 },
+              {
+                $project: {
+                  _id: 1,
+                  nombre: 1,
+                  email: 1,
+                  fotoPerfil: 1,
+                  telefono: 1
+                }
+              }
+            ],
+            as: 'clientesMuestra'
+          }
+        },
+        {
+          $addFields: {
+            totalResenas: { $size: '$resenas' },
+            promedioEstrellas: {
+              $cond: {
+                if: { $gt: [{ $size: '$resenas' }, 0] },
+                then: { $avg: '$resenas.puntuacion' },
+                else: 0
+              }
+            }
+          }
+        },
+        {
+          $project: {
+            _id: 1,
+            activo: 1,
+            nombre: 1,
+            email: 1,
+            fotoPerfil: 1,
+            telefono: 1,
+            fechaNacimiento: 1,
+            totalResenas: 1,
+            promedioEstrellas: 1,
+            resenas: {
+              _id: 1,
+              mensaje: 1,
+              puntuacion: 1,
+              fecha: 1,
+              clienteId: 1
+            },
+            clientesMuestra: 1
+          }
+        },
+        {
+          $sort: { promedioEstrellas: -1 }
+        }
+      ]);
+
+      // Populate clienteId in resenas
+      for (const vendedor of vendedores) {
+        if (vendedor.resenas && vendedor.resenas.length > 0) {
+          await this.userModel.populate(vendedor.resenas, {
+            path: 'clienteId',
+            select: 'nombre email fotoPerfil'
+          });
+        }
+      }
+
+      return vendedores;
+    } catch (error) {
+      throw new Error('No se pudo obtener la lista de vendedores con reseñas.');
+    }
+  }
+
+  async desactivateSeller(sellerId: string): Promise<{ message: string }> {
+    const updatedSeller = await this.userModel
+      .findByIdAndUpdate(
+        sellerId,
+        { activo: false },
+        { new: true }
+      )
+      .select('-password');
+    if (!updatedSeller) {
+      throw new NotFoundException(`Vendedor con ID "${sellerId}" no encontrado.`);
+    }
+    return { message: `Vendedor con ID "${sellerId}" desactivado correctamente.` };
+  }
+  async activateSeller(sellerId: string): Promise<{ message: string }> {
+    const updatedSeller = await this.userModel
+      .findByIdAndUpdate(
+        sellerId,
+        { activo: true },
+        { new: true }
+      )
+      .select('-password');
+    if (!updatedSeller) {
+      throw new NotFoundException(`Vendedor con ID "${sellerId}" no encontrado.`);
+    }
+    return { message: `Vendedor con ID "${sellerId}" activado correctamente.` };
   }
 }
