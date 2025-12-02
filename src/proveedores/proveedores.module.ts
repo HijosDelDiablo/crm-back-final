@@ -15,4 +15,4 @@ import { Proveedor, ProveedorSchema } from './schemas/proveedor.schema';
   providers: [ProveedoresService],
   exports: [ProveedoresService],
 })
-export class ProveedoresModule {}
+export class ProveedoresModule { }

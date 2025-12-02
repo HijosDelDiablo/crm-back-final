@@ -10,7 +10,7 @@ import { extname } from 'path';
 export class ProductService {
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
-  ) {}
+  ) { }
 
   private readonly s3Client = new S3Client({ region: 'us-east-2' });
   private readonly s3BucketName = 'hijosdeldiablo-smartassistant-uploads';
