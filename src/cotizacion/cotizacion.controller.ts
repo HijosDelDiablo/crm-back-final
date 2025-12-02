@@ -1,21 +1,21 @@
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  UseGuards, 
-  Get, 
-  Patch, 
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  Patch,
   Param,
   HttpCode,
   HttpStatus,
-  ParseUUIDPipe 
+  ParseUUIDPipe
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { CotizacionService } from './cotizacion.service';
-import { 
-  CreateCotizacionDto, 
-  UpdateCotizacionStatusDto, 
-  UpdateNotasVendedorDto 
+import {
+  CreateCotizacionDto,
+  UpdateCotizacionStatusDto,
+  UpdateNotasVendedorDto
 } from './dto/cotizacion.dto';
 import { VendedorCreateCotizacionDto } from './dto/vendedor-cotizacion.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -30,7 +30,7 @@ import type { ValidatedUser } from '../user/schemas/user.schema';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class CotizacionController {
-  constructor(private readonly cotizacionService: CotizacionService) {}
+  constructor(private readonly cotizacionService: CotizacionService) { }
 
   @Post()
   @Roles(Rol.CLIENTE)
@@ -71,7 +71,7 @@ export class CotizacionController {
   ) {
     return await this.cotizacionService.vendedorGenerarCotizacion(dto);
   }
-  
+
   @Get('pendientes')
   @UseGuards(RolesGuard)
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
@@ -99,19 +99,20 @@ export class CotizacionController {
   getCotizaciones() {
     return this.cotizacionService.getCotizacionesAll();
   }
-  
+
   @Patch(':id/status')
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
   @ApiOperation({ summary: 'Update cotizacion status (Vendedor, Admin)' })
   @ApiParam({ name: 'id', description: 'Cotizacion ID' })
   @ApiBody({ type: UpdateCotizacionStatusDto })
+  @ApiResponse({ status: 200, description: 'Cotizacion status updated' })
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateCotizacionStatusDto,
     @GetUser() user: ValidatedUser,
   ) {
     return await this.cotizacionService.updateCotizacionStatus(
-      id, 
+      id,
       user,
       dto.status
     );
@@ -119,12 +120,16 @@ export class CotizacionController {
 
   @Patch(':id/notas')
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  @ApiOperation({ summary: 'Update seller notes for a cotizacion (Vendedor, Admin)' })
+  @ApiParam({ name: 'id', description: 'Cotizacion ID' })
+  @ApiBody({ type: UpdateNotasVendedorDto })
+  @ApiResponse({ status: 200, description: 'Notas vendedor updated' })
   async updateNotas(
     @Param('id') id: string,
     @Body() dto: UpdateNotasVendedorDto,
   ) {
     return await this.cotizacionService.updateNotasVendedor(
-      id, 
+      id,
       dto.notasVendedor || ''
     );
   }
@@ -134,6 +139,7 @@ export class CotizacionController {
   @ApiOperation({ summary: 'Update cotizacion seller ( Admin)' })
   @ApiParam({ name: 'idPricing', description: 'Cotizacion ID' })
   @ApiParam({ name: 'idSeller', description: 'Vendedor ID' })
+  @ApiResponse({ status: 200, description: 'Seller set to pricing' })
   setSellerToPricing(
     @Param('idPricing') idPricing: string,
     @Param('idSeller') idSeller: string,
