@@ -238,6 +238,7 @@ export class UserService {
                   }
                 }
               },
+              { $limit: 3 },
               {
                 $project: {
                   _id: 1,
