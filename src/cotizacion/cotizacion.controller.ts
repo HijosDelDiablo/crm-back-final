@@ -50,6 +50,16 @@ export class CotizacionController {
     );
   }
 
+  @Get('aprobadas-cliente')
+  @Roles(Rol.CLIENTE)
+  @ApiOperation({ summary: 'Get approved cotizaciones for logged in client' })
+  @ApiResponse({ status: 200, description: 'Return approved cotizaciones for client' })
+  async getCotizacionesAprobadasCliente(
+    @GetUser() user: ValidatedUser,
+  ) {
+    return await this.cotizacionService.getCotizacionesAprobadasCliente(user._id);
+  }
+
   @Post('vendedor-create')
   @Roles(Rol.VENDEDOR)
   @ApiOperation({ summary: 'Generate cotizacion (Vendedor)' })
