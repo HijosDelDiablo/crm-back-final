@@ -4,10 +4,14 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { Rol } from '../auth/enums/rol.enum';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { SellerReview } from '../seller-review/schemas/seller-review.schema';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(SellerReview.name) private sellerReviewModel: Model<any>,
+  ) {}
   
   async findByEmailWithPassword(email: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ email }).select('+password').exec();
@@ -198,5 +202,70 @@ export class UserService {
       throw new NotFoundException(`Cliente con ID "${clientId}" no encontrado.`);
     }
     return updatedClient;
+  }
+
+  async getVendedoresConResenas(): Promise<any[]> {
+    try {
+      const vendedores = await this.userModel.aggregate([
+        {
+          $match: { rol: 'VENDEDOR' }
+        },
+        {
+          $lookup: {
+            from: 'sellerreviews',
+            localField: '_id',
+            foreignField: 'vendedorId',
+            as: 'resenas'
+          }
+        },
+        {
+          $addFields: {
+            totalResenas: { $size: '$resenas' },
+            promedioEstrellas: {
+              $cond: {
+                if: { $gt: [{ $size: '$resenas' }, 0] },
+                then: { $avg: '$resenas.puntuacion' },
+                else: 0
+              }
+            }
+          }
+        },
+        {
+          $project: {
+            _id: 1,
+            nombre: 1,
+            email: 1,
+            fotoPerfil: 1,
+            telefono: 1,
+            totalResenas: 1,
+            promedioEstrellas: 1,
+            resenas: {
+              _id: 1,
+              mensaje: 1,
+              puntuacion: 1,
+              fecha: 1,
+              clienteId: 1
+            }
+          }
+        },
+        {
+          $sort: { promedioEstrellas: -1 }
+        }
+      ]);
+
+      // Populate clienteId in resenas
+      for (const vendedor of vendedores) {
+        if (vendedor.resenas && vendedor.resenas.length > 0) {
+          await this.userModel.populate(vendedor.resenas, {
+            path: 'clienteId',
+            select: 'nombre email fotoPerfil'
+          });
+        }
+      }
+
+      return vendedores;
+    } catch (error) {
+      throw new Error('No se pudo obtener la lista de vendedores con reseñas.');
+    }
   }
 }

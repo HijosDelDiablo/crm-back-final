@@ -169,4 +169,15 @@ export class UserController {
     const imageUrl = `/uploads/profiles/${file.filename}`;
     return this.userService.uploadProfilePhoto(user._id.toString(), imageUrl);
   }
+
+  @Get('vendedores-con-resenas')
+  @Roles(Rol.ADMIN, Rol.VENDEDOR, Rol.CLIENTE)
+  @ApiOperation({ summary: 'Get all vendedores with their reviews and statistics' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Return all vendedores with total reviews and average stars' 
+  })
+  async getVendedoresConResenas() {
+    return this.userService.getVendedoresConResenas();
+  }
 }

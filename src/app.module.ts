@@ -25,6 +25,7 @@ import { AppService } from './app.service';
 import { StatisticsModule } from './statistics/statistics.module';
 import { FavoritesUserModule } from './favorites-user/favorites-user.module';
 import { IamodelModule } from './iamodel/iamodel.module';
+import { SellerReviewModule } from './seller-review/seller-review.module';
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import { IamodelModule } from './iamodel/iamodel.module';
     IamodelModule,
     StatisticsModule,
     FavoritesUserModule,
+    SellerReviewModule,
   ],
   controllers: [AppController],
   providers: [AppService],
