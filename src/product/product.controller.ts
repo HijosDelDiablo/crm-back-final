@@ -31,7 +31,7 @@ import { Rol } from '../auth/enums/rol.enum';
 
 @ApiTags('Products')
 @Controller('products')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
@@ -76,8 +76,7 @@ export class ProductController {
   }
 
   @Get('all')
-  @UseGuards(RolesGuard)
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.VENDEDOR, Rol.CLIENTE)
   @ApiOperation({ summary: 'Get all products (Admin)' })
   @ApiResponse({ status: 200, description: 'Return all products' })
   findAllForAdmin() {
