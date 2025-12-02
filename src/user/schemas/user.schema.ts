@@ -62,6 +62,6 @@ export interface ValidatedUser {
   rol: Rol;
   nombre: string;
   twoFactorEnabled?: boolean;
-
+  activo?: boolean;
   fotoPerfil?: string;
 }
