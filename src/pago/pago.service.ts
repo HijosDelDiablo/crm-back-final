@@ -82,4 +82,22 @@ export class PagoService {
             compra.status = StatusCompra.COMPLETADA;
         }
     }
+
+    async getPagosByCompraId(compraId: string): Promise<PagoDocument[]> {
+        return this.pagoModel
+            .find({ compra: compraId })
+            .populate('cliente', 'nombre email')
+            .populate('registradoPor', 'nombre email')
+            .sort({ fecha: 1 }) // Orden ascendente por fecha
+            .exec();
+    }
+
+    async getPagosByClienteId(clienteId: string): Promise<PagoDocument[]> {
+        return this.pagoModel
+            .find({ cliente: clienteId })
+            .populate('compra', 'status saldoPendiente createdAt')
+            .populate('registradoPor', 'nombre email')
+            .sort({ fecha: -1 }) // Orden descendente por fecha (más reciente primero)
+            .exec();
+    }
 }

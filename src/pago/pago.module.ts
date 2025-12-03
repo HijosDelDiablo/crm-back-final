@@ -4,6 +4,7 @@ import { Pago, PagoSchema } from './schemas/pago.schema';
 import { PagoService } from './pago.service';
 import { PagoController } from './pago.controller';
 import { Compra, CompraSchema } from '../compra/schemas/compra.schema';
+import { CompraModule } from '../compra/compra.module';
 
 @Module({
     imports: [
@@ -11,6 +12,7 @@ import { Compra, CompraSchema } from '../compra/schemas/compra.schema';
             { name: Pago.name, schema: PagoSchema },
             { name: Compra.name, schema: CompraSchema },
         ]),
+        CompraModule,
     ],
     providers: [PagoService],
     controllers: [PagoController],

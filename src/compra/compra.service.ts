@@ -574,4 +574,18 @@ export class CompraService {
       .sort({ createdAt: -1 })
       .exec();
   }
+
+  async findCompraById(compraId: string): Promise<CompraDocument> {
+    const compra = await this.compraModel
+      .findById(compraId)
+      .populate('cliente', 'nombre email')
+      .populate('vendedor', 'nombre email')
+      .exec();
+
+    if (!compra) {
+      throw new NotFoundException('Compra no encontrada');
+    }
+
+    return compra;
+  }
 }
