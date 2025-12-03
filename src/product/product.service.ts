@@ -314,10 +314,16 @@ export class ProductService {
     await product.save();
 
     // Retornar con populate
-    return this.productModel
+    const result = await this.productModel
       .findById(productId)
       .populate('proveedor', 'nombre contacto email telefono')
-      .exec() as Promise<Product>;
+      .exec();
+    
+    if (!result) {
+      throw new NotFoundException('Error al recuperar el producto actualizado');
+    }
+    
+    return result;
   }
 
   async findByProveedor(proveedorId: string): Promise<Product[]> {
