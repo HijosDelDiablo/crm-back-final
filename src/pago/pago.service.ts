@@ -84,7 +84,6 @@ export class PagoService {
 
         // Actualizar la Compra
         await this.actualizarSaldoYStatus(compra, dto.monto);
-        compra.totalPagado = parseFloat((compra.totalPagado + dto.monto).toFixed(2)); // Incrementar el total pagado
         await compra.save();
 
         // Guardar y devolver el Pago
@@ -93,7 +92,9 @@ export class PagoService {
 
     private async actualizarSaldoYStatus(compra: CompraDocument, monto: number): Promise<void> {
         compra.saldoPendiente = Math.round(((compra.saldoPendiente || 0) - monto) * 100) / 100;
+        compra.saldoPendiente = Math.round(((compra.saldoPendiente || 0) - monto) * 100) / 100;
         compra.saldoPendiente = Math.max(0, compra.saldoPendiente);
+        compra.totalPagado = Math.round(((compra.totalPagado || 0) + monto) * 100) / 100;
         if (compra.saldoPendiente === 0) {
             compra.status = StatusCompra.COMPLETADA;
             // Actualizar el estatus de la cotización asociada
@@ -101,8 +102,11 @@ export class PagoService {
                 await this.cotizacionModel.findByIdAndUpdate(compra.cotizacion, { status: 'Completada' }).exec();
             }
             // Decrementar stock del producto
-            if (compra.cotizacion && (compra.cotizacion as any).coche) {
-                await this.productService.decrementStock((compra.cotizacion as any).coche.toString(), 1);
+            if (compra.cotizacion) {
+                const cotizacion = await this.cotizacionModel.findById(compra.cotizacion);
+                if (cotizacion && cotizacion.coche) {
+                    await this.productService.decrementStock(cotizacion.coche.toString(), 1);
+                }
             }
         }
     }
