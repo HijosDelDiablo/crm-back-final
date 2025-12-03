@@ -8,39 +8,39 @@ import { Rol } from '../auth/enums/rol.enum';
 import { IsString, IsNumber, IsOptional, IsPositive, IsNotEmpty } from 'class-validator';
 
 export class RegistrarPagoDto {
-  @IsString()
-  @IsNotEmpty()
-  compraId: string;
+    @IsString()
+    @IsNotEmpty()
+    compraId: string;
 
-  @IsNumber()
-  @IsPositive()
-  monto: number;
+    @IsNumber()
+    @IsPositive()
+    monto: number;
 
-  @IsOptional()
-  @IsString()
-  metodoPago?: string;
+    @IsOptional()
+    @IsString()
+    metodoPago?: string;
 
-  @IsOptional()
-  @IsString()
-  notas?: string;
+    @IsOptional()
+    @IsString()
+    notas?: string;
 }
 
 @Controller('pagos')
 export class PagoController {
-  constructor(private readonly pagoService: PagoService) {}
+    constructor(private readonly pagoService: PagoService) { }
 
-  @Roles(Rol.VENDEDOR, Rol.ADMIN)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Post()
-  async registrarPago(
-    @Body() dto: RegistrarPagoDto,
-    @Req() req: any,
-  ) {
-    const usuarioActual: ValidatedUser = req.user;
-    const pago = await this.pagoService.registrarPago(dto, usuarioActual);
-    return {
-      message: 'Pago registrado correctamente',
-      pago,
-    };
-  }
+    @Roles(Rol.VENDEDOR, Rol.ADMIN)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Post()
+    async registrarPago(
+        @Body() dto: RegistrarPagoDto,
+        @Req() req: any,
+    ) {
+        const usuarioActual: ValidatedUser = req.user;
+        const pago = await this.pagoService.registrarPago(dto, usuarioActual);
+        return {
+            message: 'Pago registrado correctamente',
+            pago,
+        };
+    }
 }
