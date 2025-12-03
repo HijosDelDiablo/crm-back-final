@@ -44,8 +44,8 @@ export class PagoService {
         }
 
         // Normalizar valores monetarios para evitar problemas de precisión
-        compra.saldoPendiente = parseFloat(compra.saldoPendiente.toFixed(2));
-        compra.totalPagado = parseFloat(compra.totalPagado.toFixed(2));
+        compra.saldoPendiente = parseFloat((compra.saldoPendiente || 0).toFixed(2));
+        compra.totalPagado = parseFloat((compra.totalPagado || 0).toFixed(2));
 
         // Validación adicional para vendedores
         if (usuarioActual.rol === 'VENDEDOR' && compra.vendedor && compra.vendedor.toString() !== usuarioActual._id.toString()) {
@@ -97,9 +97,13 @@ export class PagoService {
         if (compra.saldoPendiente === 0) {
             compra.status = StatusCompra.COMPLETADA;
             // Actualizar el estatus de la cotización asociada
-            await this.cotizacionModel.findByIdAndUpdate(compra.cotizacion, { status: 'Completada' }).exec();
+            if (compra.cotizacion) {
+                await this.cotizacionModel.findByIdAndUpdate(compra.cotizacion, { status: 'Completada' }).exec();
+            }
             // Decrementar stock del producto
-            await this.productService.decrementStock(compra.cotizacion.coche.toString(), 1);
+            if (compra.cotizacion && compra.cotizacion.coche) {
+                await this.productService.decrementStock(compra.cotizacion.coche.toString(), 1);
+            }
         }
     }
 
