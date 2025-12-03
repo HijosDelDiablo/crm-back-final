@@ -128,7 +128,7 @@ export class CompraService {
     const nuevaCompra = new this.compraModel({
       cotizacion: new Types.ObjectId(createCompraDto.cotizacionId),
       cliente: new Types.ObjectId(cliente._id),
-      status: StatusCompra.EN_REVISION,
+      status: StatusCompra.APROBADA,
       datosFinancieros: {
         ...createCompraDto.datosFinancieros,
         capacidadPago,
