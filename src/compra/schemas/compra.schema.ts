@@ -28,10 +28,10 @@ export class Compra {
   @Prop({ type: Types.ObjectId, ref: User.name })
   analistaCredito?: Types.ObjectId;
 
-  @Prop({ 
-    type: String, 
-    enum: StatusCompra, 
-    default: StatusCompra.PENDIENTE 
+  @Prop({
+    type: String,
+    enum: StatusCompra,
+    default: StatusCompra.PENDIENTE
   })
   status: StatusCompra;
 
@@ -70,6 +70,12 @@ export class Compra {
 
   @Prop({ type: Date })
   fechaEntrega?: Date;
+
+  @Prop({ type: Number })
+  montoTotalCredito?: number;
+
+  @Prop({ type: Number, default: 0 })
+  saldoPendiente?: number;
 }
 
 export const CompraSchema = SchemaFactory.createForClass(Compra);

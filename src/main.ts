@@ -9,12 +9,12 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
+      whitelist: false,
+      forbidNonWhitelisted: false,
     }),
   );
 
-  
+
   //const port = Number(process.env.FRONTEND_PORT ?? 2000);
   const port = 2000
 

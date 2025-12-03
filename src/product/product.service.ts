@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
+import { Proveedor, ProveedorDocument } from '../proveedores/schemas/proveedor.schema';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { extname } from 'path';
@@ -10,6 +11,7 @@ import { extname } from 'path';
 export class ProductService {
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Proveedor.name) private proveedorModel: Model<ProveedorDocument>,
   ) { }
 
   private readonly s3Client = new S3Client({ region: 'us-east-2' });
@@ -19,10 +21,15 @@ export class ProductService {
     const productData: any = {
       ...dto,
       vin: dto.vin.toUpperCase(),
+      stock: dto.stock || 1, // Cantidad en stock, default 1
     };
 
     if (dto.proveedor) {
-      // asegurarse de guardar como ObjectId
+      // Validar que el proveedor existe
+      const proveedor = await this.proveedorModel.findById(dto.proveedor);
+      if (!proveedor) {
+        throw new NotFoundException('Proveedor no encontrado');
+      }
       productData.proveedor = new Types.ObjectId(dto.proveedor);
     }
 
@@ -38,7 +45,10 @@ export class ProductService {
   }
 
   async findById(id: string): Promise<Product> {
-    const product = await this.productModel.findById(id).exec();
+    const product = await this.productModel
+      .findById(id)
+      .populate('proveedor', 'nombre contacto email telefono')
+      .exec();
     if (!product) {
       throw new NotFoundException(`Producto con ID "${id}" no encontrado.`);
     }
@@ -49,6 +59,20 @@ export class ProductService {
     const updateData = { ...dto };
     if (dto.vin) {
       updateData.vin = dto.vin.toUpperCase();
+    }
+
+    if (dto.proveedor !== undefined) {
+      if (dto.proveedor) {
+        // Validar que el proveedor existe
+        const proveedor = await this.proveedorModel.findById(dto.proveedor);
+        if (!proveedor) {
+          throw new NotFoundException('Proveedor no encontrado');
+        }
+        updateData.proveedor = new Types.ObjectId(dto.proveedor);
+      } else {
+        // Si viene vacío, quitar el proveedor
+        updateData.proveedor = null;
+      }
     }
 
     const updatedProduct = await this.productModel
@@ -71,7 +95,11 @@ export class ProductService {
   }
 
   async findAllForAdmin(): Promise<Product[]> {
-    return this.productModel.find().sort({ marca: 1, modelo: 1 }).exec();
+    return this.productModel
+      .find()
+      .populate('proveedor', 'nombre contacto email telefono')
+      .sort({ marca: 1, modelo: 1 })
+      .exec();
   }
 
   async uploadImageAndUpdateProduct(
@@ -266,5 +294,37 @@ export class ProductService {
     ]);
 
     return stats.length > 0 ? stats[0] : {};
+  }
+
+  async asignarProveedor(productId: string, proveedorId: string): Promise<Product> {
+    // Validar que el producto existe
+    const product = await this.productModel.findById(productId);
+    if (!product) {
+      throw new NotFoundException('Producto no encontrado');
+    }
+
+    // Validar que el proveedor existe
+    const proveedor = await this.proveedorModel.findById(proveedorId);
+    if (!proveedor) {
+      throw new NotFoundException('Proveedor no encontrado');
+    }
+
+    // Actualizar el producto
+    product.proveedor = new Types.ObjectId(proveedorId);
+    await product.save();
+
+    // Retornar con populate
+    return this.productModel
+      .findById(productId)
+      .populate('proveedor', 'nombre contacto email telefono')
+      .exec();
+  }
+
+  async findByProveedor(proveedorId: string): Promise<Product[]> {
+    return this.productModel
+      .find({ proveedor: proveedorId })
+      .populate('proveedor', 'nombre contacto email telefono')
+      .sort({ createdAt: -1 })
+      .exec();
   }
 }

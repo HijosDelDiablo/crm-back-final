@@ -1,8 +1,9 @@
-import { 
-  Injectable, 
-  NotFoundException, 
+import {
+  Injectable,
+  NotFoundException,
   BadRequestException,
-  Logger
+  Logger,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -31,6 +32,7 @@ interface ResultadoBanco {
 
 @Injectable()
 export class CompraService {
+
   private readonly logger = new Logger(CompraService.name);
 
   constructor(
@@ -40,9 +42,34 @@ export class CompraService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly simulacionService: SimulacionService,
     private readonly oneSignalService: OneSignalService,
-  ) {}
+  ) { }
+  /**
+     * Crea una Compra asociada a una Cotizacion si no existe ya.
+     * @param cotizacion CotizacionDocument
+     * @returns CompraDocument | null (si ya existe)
+     */
+  async createFromCotizacion(cotizacion: CotizacionDocument): Promise<CompraDocument | null> {
+    // Verificar si ya existe una Compra para esta cotización
+    const compraExistente = await this.compraModel.findOne({ cotizacion: cotizacion._id });
+    if (compraExistente) {
+      return null;
+    }
 
-   async getVentasPeriodo(filter) {
+    // Inicializar saldoPendiente con solo los pagos mensuales (sin enganche)
+    const saldoPendiente = parseFloat((cotizacion.pagoMensual * cotizacion.plazoMeses).toFixed(2));
+
+    const nuevaCompra = new this.compraModel({
+      cotizacion: cotizacion._id,
+      cliente: cotizacion.cliente,
+      vendedor: cotizacion.vendedor,
+      status: StatusCompra.PENDIENTE,
+      saldoPendiente,
+      montoTotalCredito: saldoPendiente, // Campo informativo opcional
+    });
+    return await nuevaCompra.save();
+  }
+
+  async getVentasPeriodo(filter) {
     try {
       const ventas = await this.compraModel.find(filter).populate({
         path: 'cotizacion',
@@ -90,7 +117,7 @@ export class CompraService {
       cliente.nombre
     );
 
-    const capacidadPago = 
+    const capacidadPago =
       createCompraDto.datosFinancieros.ingresoMensual +
       createCompraDto.datosFinancieros.otrosIngresos -
       createCompraDto.datosFinancieros.gastosMensuales -
@@ -105,6 +132,8 @@ export class CompraService {
         capacidadPago,
       },
       resultadoBuro,
+      saldoPendiente: parseFloat((cotizacion.totalPagado - (cotizacion.enganche || 0)).toFixed(2)), // Saldo pendiente inicial: total a pagar menos enganche
+      totalPagado: parseFloat((cotizacion.enganche || 0).toFixed(2)), // El enganche se considera pagado al iniciar la compra
     });
 
     const compraGuardada = await nuevaCompra.save();
@@ -306,6 +335,11 @@ export class CompraService {
   }
 
   private async notificarCompraCompletada(compra: CompraDocument): Promise<void> {
+    if (this.configService.get('DISABLE_EMAILS') === 'true') {
+      console.log('Emails disabled, skipping email send');
+      return;
+    }
+
     const cliente = compra.cliente as any;
 
     await this.oneSignalService.enviarEmailPersonalizado(
@@ -405,9 +439,8 @@ export class CompraService {
               <p><b>Plazo:</b> ${resultadoBanco.plazoAprobado} meses</p>
             </div>
 
-            ${
-              resultadoBanco.condiciones && resultadoBanco.condiciones.length > 0
-                ? `
+            ${resultadoBanco.condiciones && resultadoBanco.condiciones.length > 0
+        ? `
             <div class="conditions">
               <h3>Condiciones del financiamiento:</h3>
               <ul>
@@ -415,8 +448,8 @@ export class CompraService {
               </ul>
             </div>
             `
-                : ''
-            }
+        : ''
+      }
 
             <p>Un asesor te contactará para continuar con el proceso.</p>
           </div>
@@ -461,16 +494,15 @@ export class CompraService {
             <div class="info-box">
               <p><b>Motivo:</b> ${resultadoBanco.motivoRechazo || 'No cumple con los criterios de aprobación'}</p>
 
-              ${
-                resultadoBanco.sugerencias && resultadoBanco.sugerencias.length > 0
-                  ? `
+              ${resultadoBanco.sugerencias && resultadoBanco.sugerencias.length > 0
+        ? `
               <p><b>Sugerencias:</b></p>
               <ul>
                 ${resultadoBanco.sugerencias.map(s => `<li>${s}</li>`).join('')}
               </ul>
               `
-                  : ''
-              }
+        : ''
+      }
             </div>
 
             <p>Puedes contactar a un asesor para más opciones.</p>
@@ -516,7 +548,7 @@ export class CompraService {
               <p><b>Vehículo:</b> ${cotizacion.coche.marca} ${cotizacion.coche.modelo}</p>
               <p><b>Fecha de entrega:</b> ${compra.fechaEntrega?.toLocaleDateString()}</p>
               <p><b>Pago mensual:</b> $${cotizacion.pagoMensual.toFixed(2)}</p>
-              <p><b>Próximo pago:</b> ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</p>
+              <p><b>Próximo pago:</b> ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
             </div>
 
             <p>Tu primer pago vence en 30 días.</p>
@@ -529,5 +561,72 @@ export class CompraService {
       </body>
       </html>
     `;
+  }
+
+  async findByClienteId(clienteId: string): Promise<CompraDocument[]> {
+    return this.compraModel
+      .find({ cliente: new Types.ObjectId(clienteId) })
+      .populate('cotizacion')
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email telefono')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async findByVendedorId(vendedorId: string): Promise<CompraDocument[]> {
+    return this.compraModel
+      .find({ vendedor: new Types.ObjectId(vendedorId) })
+      .populate('cotizacion')
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email telefono')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async findCompraById(compraId: string): Promise<CompraDocument> {
+    const compra = await this.compraModel
+      .findById(compraId)
+      .populate('cliente', 'nombre email')
+      .populate('vendedor', 'nombre email')
+      .exec();
+
+    if (!compra) {
+      throw new NotFoundException('Compra no encontrada');
+    }
+
+    return compra;
+  }
+
+  async getCompraPorCotizacion(cotizacionId: string, user: ValidatedUser): Promise<CompraDocument> {
+    // Primero verificar que la cotización existe y el usuario tiene permisos
+    const cotizacion = await this.cotizacionModel.findById(cotizacionId);
+    if (!cotizacion) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+
+    // Verificar permisos: cliente solo sus propias cotizaciones
+    if (user.rol === 'CLIENTE' && cotizacion.cliente.toString() !== user._id.toString()) {
+      throw new ForbiddenException('No tienes permiso para ver esta compra');
+    }
+
+    // Buscar la compra asociada
+    const compra = await this.compraModel
+      .findOne({ cotizacion: new Types.ObjectId(cotizacionId) })
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email telefono')
+      .populate({
+        path: 'cotizacion',
+        populate: {
+          path: 'coche',
+          select: 'marca modelo ano precioBase imageUrl'
+        }
+      })
+      .exec();
+
+    if (!compra) {
+      throw new NotFoundException('Compra no encontrada para esta cotización');
+    }
+
+    return compra;
   }
 }
