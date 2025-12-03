@@ -16,4 +16,4 @@ import { Proveedor, ProveedorSchema } from '../proveedores/schemas/proveedor.sch
   providers: [ProductService],
   exports: [MongooseModule, ProductService],
 })
-export class ProductModule {}
+export class ProductModule { }

@@ -34,7 +34,7 @@ import { Rol } from '../auth/enums/rol.enum';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class ProductController {
-  constructor(private readonly productService: ProductService) {}
+  constructor(private readonly productService: ProductService) { }
 
   @Post(':id/upload')
   @UseGuards(RolesGuard)
