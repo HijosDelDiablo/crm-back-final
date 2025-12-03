@@ -44,8 +44,8 @@ export class PagoService {
         }
 
         // Normalizar valores monetarios para evitar problemas de precisión
-        compra.saldoPendiente = parseFloat((compra.saldoPendiente || 0).toFixed(2));
-        compra.totalPagado = parseFloat((compra.totalPagado || 0).toFixed(2));
+        (compra as any).saldoPendiente = parseFloat(((compra as any).saldoPendiente || 0).toFixed(2));
+        (compra as any).totalPagado = parseFloat(((compra as any).totalPagado || 0).toFixed(2));
 
         // Validación adicional para vendedores
         if (usuarioActual.rol === 'VENDEDOR' && compra.vendedor && compra.vendedor.toString() !== usuarioActual._id.toString()) {
