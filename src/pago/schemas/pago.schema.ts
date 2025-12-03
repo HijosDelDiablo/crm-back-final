@@ -27,3 +27,5 @@ export class Pago extends Document {
     @Prop({ type: Types.ObjectId, ref: 'User' })
     registradoPor?: Types.ObjectId;
 }
+
+export const PagoSchema = SchemaFactory.createForClass(Pago);

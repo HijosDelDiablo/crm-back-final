@@ -18,6 +18,7 @@ import { EmailModule } from './email/email.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TasksModule } from './tasks/tasks.module';
 import { CompraModule } from './compra/compra.module';
+import { PagoModule } from './pago/pago.module';
 import { ProveedoresModule } from './proveedores/proveedores.module';
 import { GastosModule } from './gastos/gastos.module';
 import { AppController } from './app.controller';
@@ -37,9 +38,8 @@ import { SellerReviewModule } from './seller-review/seller-review.module';
       useFactory: async (configService: ConfigService) => {
         const uri = configService.get<string>('DATABASE_URL');
 
-        console.log(`[Mongoose] Intentando conectar a: ${
-          uri ? uri.substring(0, 20) + '...' : 'URI no definida'
-        }`);
+        console.log(`[Mongoose] Intentando conectar a: ${uri ? uri.substring(0, 20) + '...' : 'URI no definida'
+          }`);
 
         if (!uri) {
           console.error("[Mongoose] ERROR: DATABASE_URL no está definida.");
@@ -94,6 +94,7 @@ import { SellerReviewModule } from './seller-review/seller-review.module';
     NotificationsModule,
     TasksModule,
     CompraModule,
+    PagoModule,
     ProveedoresModule,
     GastosModule,
     IamodelModule,
@@ -104,4 +105,4 @@ import { SellerReviewModule } from './seller-review/seller-review.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
