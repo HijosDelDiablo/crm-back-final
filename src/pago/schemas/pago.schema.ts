@@ -23,6 +23,7 @@ export class Pago extends Document {
 
     @Prop({ type: String })
     notas?: string;
-}
 
-export const PagoSchema = SchemaFactory.createForClass(Pago);
+    @Prop({ type: Types.ObjectId, ref: 'User' })
+    registradoPor?: Types.ObjectId;
+}
