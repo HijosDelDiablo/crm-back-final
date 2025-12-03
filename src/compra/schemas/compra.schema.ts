@@ -76,6 +76,9 @@ export class Compra {
 
   @Prop({ type: Number, default: 0 })
   saldoPendiente?: number;
+
+  @Prop({ type: Number, default: 0 })
+  totalPagado?: number;
 }
 
 export const CompraSchema = SchemaFactory.createForClass(Compra);

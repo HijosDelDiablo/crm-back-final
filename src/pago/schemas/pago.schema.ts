@@ -28,4 +28,6 @@ export class Pago extends Document {
     registradoPor?: Types.ObjectId;
 }
 
+export type PagoDocument = Pago & Document;
+
 export const PagoSchema = SchemaFactory.createForClass(Pago);
