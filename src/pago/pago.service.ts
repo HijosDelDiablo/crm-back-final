@@ -38,7 +38,7 @@ export class PagoService {
         }
 
         // Buscar la Compra
-        const compra = await this.compraModel.findById(dto.compraId);
+        const compra = await this.compraModel.findById(dto.compraId).populate('cotizacion');
         if (!compra) {
             throw new NotFoundException('Compra no encontrada');
         }
@@ -92,7 +92,7 @@ export class PagoService {
     }
 
     private async actualizarSaldoYStatus(compra: CompraDocument, monto: number): Promise<void> {
-        compra.saldoPendiente = Math.round((compra.saldoPendiente - monto) * 100) / 100;
+        compra.saldoPendiente = Math.round(((compra.saldoPendiente || 0) - monto) * 100) / 100;
         compra.saldoPendiente = Math.max(0, compra.saldoPendiente);
         if (compra.saldoPendiente === 0) {
             compra.status = StatusCompra.COMPLETADA;
@@ -101,8 +101,8 @@ export class PagoService {
                 await this.cotizacionModel.findByIdAndUpdate(compra.cotizacion, { status: 'Completada' }).exec();
             }
             // Decrementar stock del producto
-            if (compra.cotizacion && compra.cotizacion.coche) {
-                await this.productService.decrementStock(compra.cotizacion.coche.toString(), 1);
+            if (compra.cotizacion && (compra.cotizacion as any).coche) {
+                await this.productService.decrementStock((compra.cotizacion as any).coche.toString(), 1);
             }
         }
     }
