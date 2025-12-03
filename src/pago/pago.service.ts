@@ -72,6 +72,7 @@ export class PagoService {
 
         // Actualizar la Compra
         this.actualizarSaldoYStatus(compra, dto.monto);
+        compra.totalPagado += dto.monto; // Incrementar el total pagado
         await compra.save();
 
         // Guardar y devolver el Pago
