@@ -462,6 +462,22 @@ export class CompraController {
     }
   })
   @ApiResponse({ status: 404, description: 'Compra no encontrada' })
+  @ApiOperation({
+    summary: 'Obtener todas las compras (Admin)',
+    description: 'Retorna todas las compras del sistema para administración.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de todas las compras',
+  })
+  @ApiResponse({ status: 403, description: 'Solo administradores pueden ver todas las compras' })
+  @Get('all')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN)
+  getAllCompras() {
+    return this.compraService.getAllCompras();
+  }
+
   @Get(':id')
   getCompraById(@Param('id') compraId: string) {
     return this.compraService.getCompraById(compraId);
