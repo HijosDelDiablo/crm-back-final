@@ -56,7 +56,7 @@ export class ProductService {
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<Product> {
-    const updateData = { ...dto };
+    const updateData: any = { ...dto };
     if (dto.vin) {
       updateData.vin = dto.vin.toUpperCase();
     }
@@ -71,7 +71,7 @@ export class ProductService {
         updateData.proveedor = new Types.ObjectId(dto.proveedor);
       } else {
         // Si viene vacío, quitar el proveedor
-        updateData.proveedor = null;
+        updateData.proveedor = undefined;
       }
     }
 
@@ -317,7 +317,7 @@ export class ProductService {
     return this.productModel
       .findById(productId)
       .populate('proveedor', 'nombre contacto email telefono')
-      .exec();
+      .exec() as Promise<Product>;
   }
 
   async findByProveedor(proveedorId: string): Promise<Product[]> {

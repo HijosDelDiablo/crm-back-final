@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 import { Compra, CompraDocument, StatusCompra } from './schemas/compra.schema';
 import { Cotizacion, CotizacionDocument } from '../cotizacion/schemas/cotizacion.schema';
 import { User, UserDocument, ValidatedUser } from '../user/schemas/user.schema';
@@ -623,5 +624,41 @@ export class CompraService {
     }
 
     return compra;
+  }
+
+  async getAllCompras(): Promise<any[]> {
+    const compras = await this.compraModel
+      .find()
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email')
+      .populate({
+        path: 'cotizacion',
+        populate: {
+          path: 'coche',
+          select: 'marca modelo ano precioBase'
+        }
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    compras.forEach((compra, index) => {
+
+    });
+
+    // Transform to match frontend expectations
+    const transformedCompras = compras.map(compra => ({
+      _id: compra._id,
+      cliente: compra.cliente,
+      vendedor: compra.vendedor,
+      estado: compra.status, // Map status to estado
+      coche: (compra.cotizacion as any)?.coche || null, // Extract coche from cotizacion
+      saldoPendiente: compra.saldoPendiente,
+      fechaCreacion: compra.fechaAprobacion, // Map createdAt to fechaCreacion
+      cotizacion: compra.cotizacion,
+      totalPagado: compra.totalPagado,
+      createdAt: compra.fechaAprobacion,
+    }));
+
+    return transformedCompras;
   }
 }

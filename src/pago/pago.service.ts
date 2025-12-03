@@ -38,7 +38,7 @@ export class PagoService {
         }
 
         // Buscar la Compra
-        const compra = await this.compraModel.findById(dto.compraId);
+        const compra = await this.compraModel.findById(dto.compraId).populate('cotizacion');
         if (!compra) {
             throw new NotFoundException('Compra no encontrada');
         }
@@ -91,6 +91,7 @@ export class PagoService {
     }
 
     private async actualizarSaldoYStatus(compra: CompraDocument, monto: number): Promise<void> {
+        compra.saldoPendiente = Math.round(((compra.saldoPendiente || 0) - monto) * 100) / 100;
         compra.saldoPendiente = Math.round(((compra.saldoPendiente || 0) - monto) * 100) / 100;
         compra.saldoPendiente = Math.max(0, compra.saldoPendiente);
         compra.totalPagado = Math.round(((compra.totalPagado || 0) + monto) * 100) / 100;
