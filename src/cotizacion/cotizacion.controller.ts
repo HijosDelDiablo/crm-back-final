@@ -9,7 +9,8 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
-  ForbiddenException
+  ForbiddenException,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { CotizacionService } from './cotizacion.service';
@@ -27,7 +28,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import type { ValidatedUser } from '../user/schemas/user.schema';
 
 @ApiTags('Cotizaciones')
-@Controller('cotizacion')
+@Controller('cotizaciones')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class CotizacionController {
@@ -187,12 +188,21 @@ export class CotizacionController {
   }
 
   @ApiOperation({
-    summary: 'Obtener mis cotizaciones aprobadas (Cliente)',
-    description: 'Retorna todas las cotizaciones aprobadas del cliente autenticado. Endpoint específico para que los clientes vean sus propias cotizaciones sin necesidad de pasar ID.'
+    summary: 'Obtener mis cotizaciones (Cliente)',
+    description: `
+    Retorna todas las cotizaciones del cliente autenticado.
+    
+    **Filtros opcionales:**
+    - status: Filtrar por estado (Pendiente, Aprobada, Rechazada)
+    
+    **Ejemplos de uso:**
+    - GET /cotizacion/mis-cotizaciones (todas)
+    - GET /cotizacion/mis-cotizaciones?status=Aprobada (solo aprobadas)
+    `
   })
   @ApiResponse({
     status: 200,
-    description: 'Lista de cotizaciones aprobadas del cliente',
+    description: 'Lista de cotizaciones del cliente',
     schema: {
       example: [
         {
@@ -207,15 +217,15 @@ export class CotizacionController {
             "marca": "Toyota",
             "modelo": "Corolla",
             "ano": 2022,
-            "precioBase": 25000,
-            "imageUrl": "https://example.com/image.jpg"
+            "precioBase": 25000
           },
           "precioCoche": 25000,
           "enganche": 5000,
           "plazoMeses": 36,
           "pagoMensual": 687.5,
           "totalPagado": 27250,
-          "status": "Aprobada"
+          "status": "Pendiente",
+          "createdAt": "2024-01-15T10:30:00.000Z"
         }
       ]
     }
@@ -224,8 +234,125 @@ export class CotizacionController {
   @Get('mis-cotizaciones')
   @UseGuards(RolesGuard)
   @Roles(Rol.CLIENTE)
-  async getMisCotizacionesAprobadas(@GetUser() user: ValidatedUser) {
-    return await this.cotizacionService.getMisCotizacionesAprobadas(user);
+  async getMisCotizaciones(
+    @GetUser() user: ValidatedUser,
+    @Query('status') status?: string
+  ) {
+    return await this.cotizacionService.getMisCotizaciones(user, status);
+  }
+
+  @ApiOperation({
+    summary: 'Obtener cotización por ID (Cliente/Admin)',
+    description: `
+    Retorna los detalles completos de una cotización específica.
+    
+    **Permisos:**
+    - Cliente: Solo puede ver sus propias cotizaciones
+    - Admin: Puede ver cualquier cotización
+    
+    **Datos incluidos:**
+    - Información completa del coche
+    - Datos del cliente y vendedor
+    - Información financiera (enganche, pagos, etc.)
+    - Estado actual
+    `
+  })
+  @ApiParam({ name: 'id', description: 'ID de la cotización' })
+  @ApiResponse({
+    status: 200,
+    description: 'Detalles de la cotización',
+    schema: {
+      example: {
+        "_id": "507f1f77bcf86cd799439011",
+        "cliente": {
+          "_id": "507f1f77bcf86cd799439012",
+          "nombre": "Juan Pérez",
+          "email": "juan@email.com",
+          "telefono": "555-1234"
+        },
+        "coche": {
+          "_id": "507f1f77bcf86cd799439013",
+          "marca": "Toyota",
+          "modelo": "Corolla",
+          "ano": 2022,
+          "precioBase": 25000,
+          "imageUrl": "/uploads/file-1705320000000-123456789.jpg",
+          "condicion": "Nuevo",
+          "transmision": "Automática",
+          "kilometraje": 0
+        },
+        "vendedor": {
+          "_id": "507f1f77bcf86cd799439014",
+          "nombre": "María García"
+        },
+        "precioCoche": 25000,
+        "enganche": 5000,
+        "plazoMeses": 36,
+        "pagoMensual": 687.5,
+        "totalPagado": 27250,
+        "status": "Aprobada",
+        "notasVendedor": "Cliente interesado en financiar",
+        "createdAt": "2024-01-15T10:30:00.000Z",
+        "updatedAt": "2024-01-15T12:00:00.000Z"
+      }
+    }
+  })
+  @ApiOperation({
+    summary: 'Obtener todas las cotizaciones (Vendedor/Admin)',
+    description: 'Retorna todas las cotizaciones del sistema. Para vendedores, incluye solo las asignadas a ellos; para admins, incluye todas.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista completa de cotizaciones',
+    schema: {
+      example: [
+        {
+          "_id": "507f1f77bcf86cd799439011",
+          "cliente": {
+            "_id": "507f1f77bcf86cd799439012",
+            "nombre": "Juan Pérez",
+            "email": "juan@email.com"
+          },
+          "coche": {
+            "_id": "507f1f77bcf86cd799439013",
+            "marca": "Toyota",
+            "modelo": "Corolla",
+            "ano": 2022,
+            "precioBase": 25000
+          },
+          "precioCoche": 25000,
+          "enganche": 5000,
+          "plazoMeses": 36,
+          "pagoMensual": 687.5,
+          "totalPagado": 27250,
+          "status": "Pendiente",
+          "vendedor": {
+            "_id": "507f1f77bcf86cd799439014",
+            "nombre": "María García"
+          }
+        }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Rol insuficiente' })
+  @Get('all')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  getCotizaciones() {
+    return this.cotizacionService.getCotizacionesAll();
+  }
+
+  @ApiResponse({ status: 403, description: 'No tienes permiso para ver esta cotización' })
+  @ApiResponse({ status: 404, description: 'Cotización no encontrada' })
+  @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.CLIENTE, Rol.ADMIN)
+  async getCotizacionById(
+    @Param('id') id: string,
+    @GetUser() user: ValidatedUser
+  ) {
+    return await this.cotizacionService.getCotizacionById(id, user);
   }
 
   @Post('vendedor-create')
@@ -397,14 +524,6 @@ export class CotizacionController {
       ]
     }
   })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Rol insuficiente' })
-  @Get('all')
-  @UseGuards(RolesGuard)
-  @Roles(Rol.VENDEDOR, Rol.ADMIN)
-  getCotizaciones() {
-    return this.cotizacionService.getCotizacionesAll();
-  }
 
   @ApiOperation({
     summary: 'Actualizar estado de cotización (Vendedor/Admin)',

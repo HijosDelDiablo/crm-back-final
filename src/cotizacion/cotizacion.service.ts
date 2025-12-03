@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -199,15 +200,37 @@ export class CotizacionService {
       .exec();
   }
 
-  async getMisCotizacionesAprobadas(user: ValidatedUser): Promise<CotizacionDocument[]> {
+  async getMisCotizaciones(user: ValidatedUser, status?: string): Promise<CotizacionDocument[]> {
+    const filter: any = { cliente: new Types.ObjectId(user._id) };
+    if (status) {
+      filter.status = status;
+    }
     return this.cotizacionModel
-      .find({
-        status: 'Aprobada',
-        cliente: new Types.ObjectId(user._id)
-      })
+      .find(filter)
       .populate('cliente', 'nombre email telefono')
       .populate('coche', 'marca modelo ano precioBase imageUrl condicion transmision kilometraje')
+      .sort({ createdAt: -1 })
       .exec();
+  }
+
+  async getCotizacionById(id: string, user: ValidatedUser): Promise<CotizacionDocument> {
+    const cotizacion = await this.cotizacionModel
+      .findById(id)
+      .populate('cliente', 'nombre email telefono')
+      .populate('coche', 'marca modelo ano precioBase imageUrl condicion transmision kilometraje descripcion')
+      .populate('vendedor', 'nombre email telefono')
+      .exec();
+
+    if (!cotizacion) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+
+    // Verificar permisos: cliente solo sus propias cotizaciones, admin todas
+    if (user.rol === 'CLIENTE' && cotizacion.cliente._id.toString() !== user._id.toString()) {
+      throw new ForbiddenException('No tienes permiso para ver esta cotización');
+    }
+
+    return cotizacion;
   }
 
   async updateNotasVendedor(

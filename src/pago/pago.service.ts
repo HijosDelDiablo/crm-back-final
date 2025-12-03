@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Pago, PagoDocument } from './schemas/pago.schema';
 import { Compra, CompraDocument, StatusCompra } from '../compra/schemas/compra.schema';
+import { Cotizacion, CotizacionDocument } from '../cotizacion/schemas/cotizacion.schema';
 import { ValidatedUser } from '../user/schemas/user.schema';
 
 interface RegistrarPagoDto {
@@ -17,6 +18,7 @@ export class PagoService {
     constructor(
         @InjectModel(Pago.name) private pagoModel: Model<PagoDocument>,
         @InjectModel(Compra.name) private compraModel: Model<CompraDocument>,
+        @InjectModel(Cotizacion.name) private cotizacionModel: Model<CotizacionDocument>,
     ) { }
 
     async registrarPago(
@@ -98,6 +100,33 @@ export class PagoService {
             .populate('compra', 'status saldoPendiente createdAt')
             .populate('registradoPor', 'nombre email')
             .sort({ fecha: -1 }) // Orden descendente por fecha (más reciente primero)
+            .exec();
+    }
+
+    async getPagosByCotizacionId(cotizacionId: string, user: ValidatedUser): Promise<PagoDocument[]> {
+        // Verificar que la cotización existe y el usuario tiene permisos
+        const cotizacion = await this.cotizacionModel.findById(cotizacionId);
+        if (!cotizacion) {
+            throw new NotFoundException('Cotización no encontrada');
+        }
+
+        // Verificar permisos: cliente solo sus propias cotizaciones
+        if (user.rol === 'CLIENTE' && cotizacion.cliente.toString() !== user._id.toString()) {
+            throw new ForbiddenException('No tienes permiso para ver los pagos de esta cotización');
+        }
+
+        // Buscar la compra asociada
+        const compra = await this.compraModel.findOne({ cotizacion: new Types.ObjectId(cotizacionId) });
+        if (!compra) {
+            throw new NotFoundException('Compra no encontrada para esta cotización');
+        }
+
+        // Obtener los pagos de esa compra
+        return this.pagoModel
+            .find({ compra: compra._id })
+            .populate('compra', 'status saldoPendiente')
+            .populate('registradoPor', 'nombre email')
+            .sort({ fecha: -1 })
             .exec();
     }
 }

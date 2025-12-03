@@ -270,4 +270,59 @@ export class PagoController {
             pagos,
         };
     }
+
+    @ApiOperation({
+        summary: 'Obtener pagos por cotización (Cliente/Admin)',
+        description: `
+        Retorna el historial de pagos de una cotización específica.
+        
+        **Funcionamiento:**
+        - Busca la compra asociada a la cotización
+        - Retorna todos los pagos de esa compra
+        
+        **Permisos:**
+        - Cliente: Solo pagos de sus propias cotizaciones
+        - Admin: Pagos de cualquier cotización
+        
+        **Uso típico:**
+        - Desde el detalle de cotización, ver historial de pagos sin necesidad de conocer el ID de compra
+        `
+    })
+    @ApiParam({ name: 'cotizacionId', description: 'ID de la cotización' })
+    @ApiResponse({
+        status: 200,
+        description: 'Historial de pagos obtenido correctamente',
+        schema: {
+            example: {
+                message: 'Historial de pagos obtenido correctamente',
+                pagos: [
+                    {
+                        "_id": "507f1f77bcf86cd799439016",
+                        "compra": "507f1f77bcf86cd799439015",
+                        "monto": 5000,
+                        "metodoPago": "Transferencia bancaria",
+                        "notas": "Pago inicial de enganche",
+                        "fechaPago": "2024-01-15T14:00:00.000Z"
+                    }
+                ]
+            }
+        }
+    })
+    @ApiResponse({ status: 403, description: 'No tienes permiso para ver los pagos de esta cotización' })
+    @ApiResponse({ status: 404, description: 'Cotización o compra no encontrada' })
+    @Roles(Rol.ADMIN, Rol.CLIENTE)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Get('por-cotizacion/:cotizacionId')
+    async getPagosPorCotizacion(
+        @Param('cotizacionId') cotizacionId: string,
+        @Req() req: any,
+    ) {
+        const usuarioActual: ValidatedUser = req.user;
+        const pagos = await this.pagoService.getPagosByCotizacionId(cotizacionId, usuarioActual);
+
+        return {
+            message: 'Historial de pagos obtenido correctamente',
+            pagos,
+        };
+    }
 }

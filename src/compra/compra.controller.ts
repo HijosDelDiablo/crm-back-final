@@ -263,6 +263,61 @@ export class CompraController {
   }
 
   @ApiOperation({
+    summary: 'Obtener compra por cotización (Cliente/Admin)',
+    description: `
+    Retorna la compra asociada a una cotización específica.
+    
+    **Permisos:**
+    - Cliente: Solo puede ver compras de sus propias cotizaciones
+    - Admin: Puede ver cualquier compra
+    
+    **Uso típico:**
+    - Desde el detalle de una cotización, obtener la compra relacionada para ver pagos
+    `
+  })
+  @ApiParam({ name: 'cotizacionId', description: 'ID de la cotización' })
+  @ApiResponse({
+    status: 200,
+    description: 'Compra encontrada',
+    schema: {
+      example: {
+        "_id": "507f1f77bcf86cd799439015",
+        "cliente": {
+          "_id": "507f1f77bcf86cd799439012",
+          "nombre": "Juan Pérez",
+          "email": "juan@email.com"
+        },
+        "cotizacion": {
+          "_id": "507f1f77bcf86cd799439011",
+          "coche": {
+            "marca": "Toyota",
+            "modelo": "Corolla",
+            "ano": 2022
+          }
+        },
+        "vendedor": {
+          "_id": "507f1f77bcf86cd799439014",
+          "nombre": "María García"
+        },
+        "status": "Aprobada",
+        "saldoPendiente": 22250,
+        "fechaAprobacion": "2024-01-15T12:00:00.000Z"
+      }
+    }
+  })
+  @ApiResponse({ status: 403, description: 'No tienes permiso para ver esta compra' })
+  @ApiResponse({ status: 404, description: 'Compra no encontrada para esta cotización' })
+  @Get('por-cotizacion/:cotizacionId')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.CLIENTE, Rol.ADMIN)
+  async getCompraPorCotizacion(
+    @Param('cotizacionId') cotizacionId: string,
+    @GetUser() user: ValidatedUser
+  ) {
+    return await this.compraService.getCompraPorCotizacion(cotizacionId, user);
+  }
+
+  @ApiOperation({
     summary: 'Evaluar financiamiento (Vendedor/Admin)',
     description: `
     Permite a un vendedor o admin evaluar la solicitud de financiamiento de una compra.

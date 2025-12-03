@@ -2,7 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  Logger
+  Logger,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -589,6 +590,39 @@ export class CompraService {
 
     if (!compra) {
       throw new NotFoundException('Compra no encontrada');
+    }
+
+    return compra;
+  }
+
+  async getCompraPorCotizacion(cotizacionId: string, user: ValidatedUser): Promise<CompraDocument> {
+    // Primero verificar que la cotización existe y el usuario tiene permisos
+    const cotizacion = await this.cotizacionModel.findById(cotizacionId);
+    if (!cotizacion) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+
+    // Verificar permisos: cliente solo sus propias cotizaciones
+    if (user.rol === 'CLIENTE' && cotizacion.cliente.toString() !== user._id.toString()) {
+      throw new ForbiddenException('No tienes permiso para ver esta compra');
+    }
+
+    // Buscar la compra asociada
+    const compra = await this.compraModel
+      .findOne({ cotizacion: new Types.ObjectId(cotizacionId) })
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email telefono')
+      .populate({
+        path: 'cotizacion',
+        populate: {
+          path: 'coche',
+          select: 'marca modelo ano precioBase imageUrl'
+        }
+      })
+      .exec();
+
+    if (!compra) {
+      throw new NotFoundException('Compra no encontrada para esta cotización');
     }
 
     return compra;
