@@ -33,14 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException('Token inválido, usuario no existe.');
     }
-    
-    const userObject = user.toObject();
-    
-    return {
-      ...userObject,
-      _id: userObject._id.toString(),
-      password: undefined,
-      twoFactorSecret: undefined
-    };
+    const { password, twoFactorSecret, ...result } = user.toObject();
+    return result;
   }
 }
