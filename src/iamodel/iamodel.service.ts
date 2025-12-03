@@ -1298,7 +1298,7 @@ export class IamodelService {
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
+
       const bestSellers = await this.cotizacionModel.aggregate([
         {
           $match: {
@@ -1324,14 +1324,14 @@ export class IamodelService {
         { $sort: { totalSales: -1 } },
         { $limit: 5 }
       ]);
-      
+
       if (!bestSellers.length) {
         return {
           message: "No hay datos de ventas en los ultimos 30 dias.",
           type: 'text'
         };
       }
-      
+
       let message = `Mejores Vendedores (Ultimos 30 dias)\n\n`;
       bestSellers.forEach((seller, i) => {
         const name = seller.vendedorInfo?.[0]?.nombre || 'Vendedor';
@@ -1339,7 +1339,7 @@ export class IamodelService {
         message += `   Ventas: $${seller.totalSales.toLocaleString()}\n`;
         message += `   Vehiculos: ${seller.saleCount}\n\n`;
       });
-      
+
       return {
         message,
         type: 'best_sellers',
@@ -1347,28 +1347,28 @@ export class IamodelService {
       };
     } catch (error) {
       this.logger.error(`Error obteniendo mejores vendedores: ${error.message}`);
-      return { 
-        message: "Error al cargar los mejores vendedores.", 
-        type: 'text' 
+      return {
+        message: "Error al cargar los mejores vendedores.",
+        type: 'text'
       };
     }
   }
 
   private async getFinancingInfo(): Promise<IaResponse> {
     const financingInfo = `Como Funciona el Financiamiento\n\nEn Autobots, ofrecemos financiamiento flexible para que puedas adquirir tu vehiculo ideal.\n\nProceso:\n1. Elige el vehiculo que te interesa\n2. Selecciona el porcentaje de enganche (minimo 20%)\n3. Elige el plazo (hasta 72 meses)\n4. Calculamos tu mensualidad con tasa fija\n\nBeneficios:\n- Tasas competitivas desde 12% anual\n- Enganches desde 20%\n- Plazos hasta 6 años\n- Aprobacion rapida\n\nPara calcular una mensualidad especifica, dime el precio del vehiculo, enganche y plazo.`;
-    
-    return { 
-      message: financingInfo, 
-      type: 'text' 
+
+    return {
+      message: financingInfo,
+      type: 'text'
     };
   }
 
   private async getClientCapabilities(): Promise<IaResponse> {
     const capabilities = `Que Puede Hacer un Cliente\n\nComo cliente registrado, puedes:\n\n- Ver autos disponibles en inventario\n- Buscar vehiculos por marca o modelo\n- Calcular financiamiento personalizado\n- Agendar prueba de manejo\n- Ver el estado de tus cotizaciones\n- Contactar con soporte tecnico\n- Obtener informacion de la empresa\n- Ver mejores vendedores\n\nPara cualquier consulta, estoy aqui para ayudarte!`;
-    
-    return { 
-      message: capabilities, 
-      type: 'text' 
+
+    return {
+      message: capabilities,
+      type: 'text'
     };
   }
 
@@ -1398,17 +1398,17 @@ export class IamodelService {
         { $sort: { totalPurchases: -1 } },
         { $limit: 1 }
       ]);
-      
+
       if (!topClients.length) {
         return {
           message: "No hay datos de compras.",
           type: 'text'
         };
       }
-      
+
       const topClient = topClients[0];
       const name = topClient.clienteInfo?.[0]?.nombre || 'Cliente';
-      
+
       return {
         message: `Cliente con Mas Compras\n\n${name}\nTotal Comprado: $${topClient.totalPurchases.toLocaleString()}\nVehiculos Comprados: ${topClient.purchaseCount}`,
         type: 'top_client',
@@ -1416,9 +1416,9 @@ export class IamodelService {
       };
     } catch (error) {
       this.logger.error(`Error obteniendo top cliente: ${error.message}`);
-      return { 
-        message: "Error al cargar el cliente top.", 
-        type: 'text' 
+      return {
+        message: "Error al cargar el cliente top.",
+        type: 'text'
       };
     }
   }
@@ -1430,23 +1430,23 @@ export class IamodelService {
         activo: true,
         stock: { $gt: 0 }
       })
-      .sort({ stock: -1 })
-      .limit(5);
-      
+        .sort({ stock: -1 })
+        .limit(5);
+
       if (!topStockCars.length) {
         return {
           message: "No hay autos en stock.",
           type: 'text'
         };
       }
-      
+
       let message = `Autos con Mas Stock\n\n`;
       topStockCars.forEach((car, i) => {
         message += `${i + 1}. ${car.marca} ${car.modelo}\n`;
         message += `   Stock: ${car.stock} unidades\n`;
         message += `   Precio: $${car.precioBase.toLocaleString()}\n\n`;
       });
-      
+
       return {
         message,
         type: 'top_stock_cars',
@@ -1454,9 +1454,9 @@ export class IamodelService {
       };
     } catch (error) {
       this.logger.error(`Error obteniendo autos con mas stock: ${error.message}`);
-      return { 
-        message: "Error al cargar los autos con mas stock.", 
-        type: 'text' 
+      return {
+        message: "Error al cargar los autos con mas stock.",
+        type: 'text'
       };
     }
   }
@@ -1474,16 +1474,16 @@ export class IamodelService {
           }
         }
       ]);
-      
+
       if (!summary.length) {
         return {
           message: "No hay autos registrados.",
           type: 'text'
         };
       }
-      
+
       const data = summary[0];
-      
+
       return {
         message: `Resumen de Autos\n\nTotal de Modelos: ${data.totalCars}\nTotal en Stock: ${data.totalStock}\nValor Total del Inventario: $${data.totalValue.toLocaleString()}\nPrecio Promedio: $${Math.round(data.avgPrice).toLocaleString()}`,
         type: 'cars_summary',
@@ -1491,9 +1491,9 @@ export class IamodelService {
       };
     } catch (error) {
       this.logger.error(`Error obteniendo resumen de autos: ${error.message}`);
-      return { 
-        message: "Error al cargar el resumen de autos.", 
-        type: 'text' 
+      return {
+        message: "Error al cargar el resumen de autos.",
+        type: 'text'
       };
     }
   }
@@ -1503,10 +1503,10 @@ export class IamodelService {
       const employees = await this.userModel.find({
         rol: { $in: ['VENDEDOR', 'ADMIN'] }
       }).select('nombre rol');
-      
+
       const vendors = employees.filter(e => e.rol === 'VENDEDOR');
       const admins = employees.filter(e => e.rol === 'ADMIN');
-      
+
       return {
         message: `Resumen de Empleados\n\nTotal de Empleados: ${employees.length}\nVendedores: ${vendors.length}\nAdministradores: ${admins.length}`,
         type: 'employees_summary',
@@ -1519,9 +1519,9 @@ export class IamodelService {
       };
     } catch (error) {
       this.logger.error(`Error obteniendo resumen de empleados: ${error.message}`);
-      return { 
-        message: "Error al cargar el resumen de empleados.", 
-        type: 'text' 
+      return {
+        message: "Error al cargar el resumen de empleados.",
+        type: 'text'
       };
     }
   }
@@ -1529,13 +1529,13 @@ export class IamodelService {
   private async getClientsSummary(): Promise<IaResponse> {
     try {
       const clients = await this.userModel.find({ rol: 'CLIENTE' }).select('nombre email createdAt');
-      
+
       const newClients = clients.filter(client => {
         const createdAt = client.get('createdAt') as Date;
         const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
         return daysAgo <= 30;
       });
-      
+
       return {
         message: `Resumen de Clientes\n\nTotal de Clientes: ${clients.length}\nNuevos (30 dias): ${newClients.length}`,
         type: 'clients_summary',
@@ -1547,9 +1547,9 @@ export class IamodelService {
       };
     } catch (error) {
       this.logger.error(`Error obteniendo resumen de clientes: ${error.message}`);
-      return { 
-        message: "Error al cargar el resumen de clientes.", 
-        type: 'text' 
+      return {
+        message: "Error al cargar el resumen de clientes.",
+        type: 'text'
       };
     }
   }
