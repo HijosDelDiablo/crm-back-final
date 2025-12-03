@@ -70,6 +70,9 @@ export class Compra {
 
   @Prop({ type: Date })
   fechaEntrega?: Date;
+
+    @Prop({ type: Number, default: 0 })
+    saldoPendiente?: number;
 }
 
 export const CompraSchema = SchemaFactory.createForClass(Compra);
