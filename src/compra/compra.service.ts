@@ -65,7 +65,7 @@ export class CompraService {
       cliente: cotizacion.cliente,
       vendedor: cotizacion.vendedor,
       status: StatusCompra.PENDIENTE,
-      saldoPendiente,
+      saldoPendiente: saldoPendiente - (cotizacion.enganche || 0),
       montoTotalCredito: saldoPendiente, // Campo informativo opcional
     });
     return await nuevaCompra.save();
