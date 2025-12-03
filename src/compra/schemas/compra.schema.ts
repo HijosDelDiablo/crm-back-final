@@ -71,6 +71,9 @@ export class Compra {
   @Prop({ type: Date })
   fechaEntrega?: Date;
 
+  @Prop({ type: Number })
+  montoTotalCredito?: number;
+
   @Prop({ type: Number, default: 0 })
   saldoPendiente?: number;
 }

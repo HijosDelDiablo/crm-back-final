@@ -54,15 +54,8 @@ export class CompraService {
       return null;
     }
 
-    // Inicializar saldoPendiente según prioridad
-    let saldoPendiente = 0;
-    if (typeof cotizacion.totalPagado === 'number') {
-      saldoPendiente = cotizacion.totalPagado;
-    } else if (typeof cotizacion.montoFinanciado === 'number') {
-      saldoPendiente = cotizacion.montoFinanciado;
-    } else if (typeof cotizacion.precioCoche === 'number' && typeof cotizacion.enganche === 'number') {
-      saldoPendiente = cotizacion.precioCoche - cotizacion.enganche;
-    }
+    // Inicializar saldoPendiente con solo los pagos mensuales (sin enganche)
+    const saldoPendiente = parseFloat((cotizacion.pagoMensual * cotizacion.plazoMeses).toFixed(2));
 
     const nuevaCompra = new this.compraModel({
       cotizacion: cotizacion._id,
@@ -70,6 +63,7 @@ export class CompraService {
       vendedor: cotizacion.vendedor,
       status: StatusCompra.PENDIENTE,
       saldoPendiente,
+      montoTotalCredito: saldoPendiente, // Campo informativo opcional
     });
     return await nuevaCompra.save();
   }
