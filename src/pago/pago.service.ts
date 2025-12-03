@@ -44,8 +44,8 @@ export class PagoService {
         }
 
         // Normalizar valores monetarios para evitar problemas de precisión
-        compra.saldoPendiente = parseFloat((compra.saldoPendiente || 0).toFixed(2));
-        compra.totalPagado = parseFloat((compra.totalPagado || 0).toFixed(2));
+        (compra as any).saldoPendiente = parseFloat(((compra as any).saldoPendiente || 0).toFixed(2));
+        (compra as any).totalPagado = parseFloat(((compra as any).totalPagado || 0).toFixed(2));
 
         // Validación adicional para vendedores
         if (usuarioActual.rol === 'VENDEDOR' && compra.vendedor && compra.vendedor.toString() !== usuarioActual._id.toString()) {
@@ -84,7 +84,7 @@ export class PagoService {
 
         // Actualizar la Compra
         await this.actualizarSaldoYStatus(compra, dto.monto);
-        compra.totalPagado = parseFloat((compra.totalPagado + dto.monto).toFixed(2)); // Incrementar el total pagado
+        (compra as any).totalPagado = parseFloat(((compra as any).totalPagado + dto.monto).toFixed(2)); // Incrementar el total pagado
         await compra.save();
 
         // Guardar y devolver el Pago
@@ -92,9 +92,9 @@ export class PagoService {
     }
 
     private async actualizarSaldoYStatus(compra: CompraDocument, monto: number): Promise<void> {
-        compra.saldoPendiente = Math.round(((compra.saldoPendiente || 0) - monto) * 100) / 100;
-        compra.saldoPendiente = Math.max(0, compra.saldoPendiente);
-        if (compra.saldoPendiente === 0) {
+        (compra as any).saldoPendiente = Math.round((((compra as any).saldoPendiente || 0) - monto) * 100) / 100;
+        (compra as any).saldoPendiente = Math.max(0, (compra as any).saldoPendiente);
+        if ((compra as any).saldoPendiente === 0) {
             compra.status = StatusCompra.COMPLETADA;
             // Actualizar el estatus de la cotización asociada
             if (compra.cotizacion) {
