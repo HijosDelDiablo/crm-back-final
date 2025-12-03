@@ -2,7 +2,10 @@
 /dist
 /node_modules
 /build
-
+# personal 
+backup.sh
+backup/
+docker-compose-backup.yml
 # Logs
 logs
 *.log
