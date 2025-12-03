@@ -134,4 +134,26 @@ export class ProductController {
   remove(@Param('id') id: string) {
     return this.productService.delete(id);
   }
+
+  @Patch(':productId/asignar-proveedor')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Assign provider to product (Admin)' })
+  @ApiParam({ name: 'productId', description: 'Product ID' })
+  @ApiBody({ schema: { type: 'object', properties: { proveedorId: { type: 'string' } } } })
+  async asignarProveedor(
+    @Param('productId') productId: string,
+    @Body() body: { proveedorId: string },
+  ) {
+    return this.productService.asignarProveedor(productId, body.proveedorId);
+  }
+
+  @Get('por-proveedor/:proveedorId')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN, Rol.VENDEDOR)
+  @ApiOperation({ summary: 'Get products by provider' })
+  @ApiParam({ name: 'proveedorId', description: 'Provider ID' })
+  async findByProveedor(@Param('proveedorId') proveedorId: string) {
+    return this.productService.findByProveedor(proveedorId);
+  }
 }

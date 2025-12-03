@@ -332,6 +332,11 @@ export class CompraService {
   }
 
   private async notificarCompraCompletada(compra: CompraDocument): Promise<void> {
+    if (this.configService.get('DISABLE_EMAILS') === 'true') {
+      console.log('Emails disabled, skipping email send');
+      return;
+    }
+
     const cliente = compra.cliente as any;
 
     await this.oneSignalService.enviarEmailPersonalizado(
