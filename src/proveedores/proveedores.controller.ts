@@ -22,7 +22,7 @@ import { Rol } from '../auth/enums/rol.enum';
 @Roles(Rol.ADMIN)
 @ApiBearerAuth()
 export class ProveedoresController {
-  constructor(private readonly proveedoresService: ProveedoresService) {}
+  constructor(private readonly proveedoresService: ProveedoresService) { }
 
   @ApiOperation({
     summary: 'Crear proveedor (Admin)',

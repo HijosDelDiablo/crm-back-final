@@ -199,6 +199,17 @@ export class CotizacionService {
       .exec();
   }
 
+  async getMisCotizacionesAprobadas(user: ValidatedUser): Promise<CotizacionDocument[]> {
+    return this.cotizacionModel
+      .find({
+        status: 'Aprobada',
+        cliente: new Types.ObjectId(user._id)
+      })
+      .populate('cliente', 'nombre email telefono')
+      .populate('coche', 'marca modelo ano precioBase imageUrl condicion transmision kilometraje')
+      .exec();
+  }
+
   async updateNotasVendedor(
     id: string,
     notasVendedor: string,

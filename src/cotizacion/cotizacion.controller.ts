@@ -8,7 +8,8 @@ import {
   Param,
   HttpCode,
   HttpStatus,
-  ParseUUIDPipe
+  ParseUUIDPipe,
+  ForbiddenException
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { CotizacionService } from './cotizacion.service';
@@ -132,6 +133,99 @@ export class CotizacionController {
     @GetUser() user: ValidatedUser,
   ) {
     return await this.cotizacionService.getCotizacionesAprobadasCliente(user._id);
+  }
+
+  @ApiOperation({
+    summary: 'Obtener cotizaciones aprobadas de un cliente (Cliente/Admin)',
+    description: 'Retorna las cotizaciones aprobadas de un cliente específico. Los clientes solo pueden ver sus propias cotizaciones.'
+  })
+  @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de cotizaciones aprobadas del cliente',
+    schema: {
+      example: [
+        {
+          "_id": "507f1f77bcf86cd799439011",
+          "cliente": {
+            "_id": "507f1f77bcf86cd799439012",
+            "nombre": "Juan Pérez",
+            "email": "juan@email.com"
+          },
+          "coche": {
+            "_id": "507f1f77bcf86cd799439013",
+            "marca": "Toyota",
+            "modelo": "Corolla",
+            "ano": 2022,
+            "precioBase": 25000,
+            "imageUrl": "https://example.com/image.jpg"
+          },
+          "precioCoche": 25000,
+          "enganche": 5000,
+          "plazoMeses": 36,
+          "pagoMensual": 687.5,
+          "totalPagado": 27250,
+          "status": "Aprobada"
+        }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'No tienes permiso para ver las cotizaciones de este cliente' })
+  @Get('aprobadas/:clienteId')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.CLIENTE, Rol.ADMIN)
+  async getCotizacionesAprobadasPorClienteId(
+    @Param('clienteId') clienteId: string,
+    @GetUser() user: ValidatedUser,
+  ) {
+    // Validar que el cliente solo pueda ver sus propias cotizaciones
+    if (user.rol === Rol.CLIENTE && user._id.toString() !== clienteId) {
+      throw new ForbiddenException('No tienes permiso para ver las cotizaciones de este cliente');
+    }
+    return await this.cotizacionService.getCotizacionesAprobadasCliente(clienteId);
+  }
+
+  @ApiOperation({
+    summary: 'Obtener mis cotizaciones aprobadas (Cliente)',
+    description: 'Retorna todas las cotizaciones aprobadas del cliente autenticado. Endpoint específico para que los clientes vean sus propias cotizaciones sin necesidad de pasar ID.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de cotizaciones aprobadas del cliente',
+    schema: {
+      example: [
+        {
+          "_id": "507f1f77bcf86cd799439011",
+          "cliente": {
+            "_id": "507f1f77bcf86cd799439012",
+            "nombre": "Juan Pérez",
+            "email": "juan@email.com"
+          },
+          "coche": {
+            "_id": "507f1f77bcf86cd799439013",
+            "marca": "Toyota",
+            "modelo": "Corolla",
+            "ano": 2022,
+            "precioBase": 25000,
+            "imageUrl": "https://example.com/image.jpg"
+          },
+          "precioCoche": 25000,
+          "enganche": 5000,
+          "plazoMeses": 36,
+          "pagoMensual": 687.5,
+          "totalPagado": 27250,
+          "status": "Aprobada"
+        }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @Get('mis-cotizaciones')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.CLIENTE)
+  async getMisCotizacionesAprobadas(@GetUser() user: ValidatedUser) {
+    return await this.cotizacionService.getMisCotizacionesAprobadas(user);
   }
 
   @Post('vendedor-create')
