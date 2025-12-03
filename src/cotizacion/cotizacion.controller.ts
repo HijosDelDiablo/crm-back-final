@@ -347,7 +347,7 @@ export class CotizacionController {
   @ApiResponse({ status: 404, description: 'Cotización no encontrada' })
   @Get(':id')
   @UseGuards(RolesGuard)
-  @Roles(Rol.CLIENTE, Rol.ADMIN)
+  @Roles(Rol.CLIENTE, Rol.ADMIN, Rol.VENDEDOR)
   async getCotizacionById(
     @Param('id') id: string,
     @GetUser() user: ValidatedUser
