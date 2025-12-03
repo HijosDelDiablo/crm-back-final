@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CotizacionService } from './cotizacion.service';
+import { CompraModule } from '../compra/compra.module';
 import { CotizacionController } from './cotizacion.controller';
 import { Cotizacion, CotizacionSchema } from './schemas/cotizacion.schema';
 import { Product, ProductSchema } from '../product/schemas/product.schema';
@@ -15,9 +16,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ]),
     UserModule,
     NotificationsModule,
+    CompraModule,
   ],
   controllers: [CotizacionController],
   providers: [CotizacionService],
   exports: [CotizacionService],
 })
-export class CotizacionModule {}
+export class CotizacionModule { }

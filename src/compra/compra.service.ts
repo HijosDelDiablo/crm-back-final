@@ -1,6 +1,6 @@
-import { 
-  Injectable, 
-  NotFoundException, 
+import {
+  Injectable,
+  NotFoundException,
   BadRequestException,
   Logger
 } from '@nestjs/common';
@@ -31,6 +31,7 @@ interface ResultadoBanco {
 
 @Injectable()
 export class CompraService {
+
   private readonly logger = new Logger(CompraService.name);
 
   constructor(
@@ -40,9 +41,40 @@ export class CompraService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly simulacionService: SimulacionService,
     private readonly oneSignalService: OneSignalService,
-  ) {}
+  ) { }
+  /**
+     * Crea una Compra asociada a una Cotizacion si no existe ya.
+     * @param cotizacion CotizacionDocument
+     * @returns CompraDocument | null (si ya existe)
+     */
+  async createFromCotizacion(cotizacion: CotizacionDocument): Promise<CompraDocument | null> {
+    // Verificar si ya existe una Compra para esta cotización
+    const compraExistente = await this.compraModel.findOne({ cotizacion: cotizacion._id });
+    if (compraExistente) {
+      return null;
+    }
 
-   async getVentasPeriodo(filter) {
+    // Inicializar saldoPendiente según prioridad
+    let saldoPendiente = 0;
+    if (typeof cotizacion.totalPagado === 'number') {
+      saldoPendiente = cotizacion.totalPagado;
+    } else if (typeof cotizacion.montoFinanciado === 'number') {
+      saldoPendiente = cotizacion.montoFinanciado;
+    } else if (typeof cotizacion.precioCoche === 'number' && typeof cotizacion.enganche === 'number') {
+      saldoPendiente = cotizacion.precioCoche - cotizacion.enganche;
+    }
+
+    const nuevaCompra = new this.compraModel({
+      cotizacion: cotizacion._id,
+      cliente: cotizacion.cliente,
+      vendedor: cotizacion.vendedor,
+      status: StatusCompra.PENDIENTE,
+      saldoPendiente,
+    });
+    return await nuevaCompra.save();
+  }
+
+  async getVentasPeriodo(filter) {
     try {
       const ventas = await this.compraModel.find(filter).populate({
         path: 'cotizacion',
@@ -90,7 +122,7 @@ export class CompraService {
       cliente.nombre
     );
 
-    const capacidadPago = 
+    const capacidadPago =
       createCompraDto.datosFinancieros.ingresoMensual +
       createCompraDto.datosFinancieros.otrosIngresos -
       createCompraDto.datosFinancieros.gastosMensuales -
@@ -405,9 +437,8 @@ export class CompraService {
               <p><b>Plazo:</b> ${resultadoBanco.plazoAprobado} meses</p>
             </div>
 
-            ${
-              resultadoBanco.condiciones && resultadoBanco.condiciones.length > 0
-                ? `
+            ${resultadoBanco.condiciones && resultadoBanco.condiciones.length > 0
+        ? `
             <div class="conditions">
               <h3>Condiciones del financiamiento:</h3>
               <ul>
@@ -415,8 +446,8 @@ export class CompraService {
               </ul>
             </div>
             `
-                : ''
-            }
+        : ''
+      }
 
             <p>Un asesor te contactará para continuar con el proceso.</p>
           </div>
@@ -461,16 +492,15 @@ export class CompraService {
             <div class="info-box">
               <p><b>Motivo:</b> ${resultadoBanco.motivoRechazo || 'No cumple con los criterios de aprobación'}</p>
 
-              ${
-                resultadoBanco.sugerencias && resultadoBanco.sugerencias.length > 0
-                  ? `
+              ${resultadoBanco.sugerencias && resultadoBanco.sugerencias.length > 0
+        ? `
               <p><b>Sugerencias:</b></p>
               <ul>
                 ${resultadoBanco.sugerencias.map(s => `<li>${s}</li>`).join('')}
               </ul>
               `
-                  : ''
-              }
+        : ''
+      }
             </div>
 
             <p>Puedes contactar a un asesor para más opciones.</p>
@@ -516,7 +546,7 @@ export class CompraService {
               <p><b>Vehículo:</b> ${cotizacion.coche.marca} ${cotizacion.coche.modelo}</p>
               <p><b>Fecha de entrega:</b> ${compra.fechaEntrega?.toLocaleDateString()}</p>
               <p><b>Pago mensual:</b> $${cotizacion.pagoMensual.toFixed(2)}</p>
-              <p><b>Próximo pago:</b> ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</p>
+              <p><b>Próximo pago:</b> ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
             </div>
 
             <p>Tu primer pago vence en 30 días.</p>

@@ -32,7 +32,8 @@ export class CotizacionService {
     private cotizacionModel: Model<CotizacionDocument>,
     private readonly oneSignalService: OneSignalService,
     private readonly userService: UserService,
-  ) {}
+    private readonly compraService: import('../compra/compra.service').CompraService,
+  ) { }
 
   async generarCotizacion(
     cliente: ValidatedUser,
@@ -64,7 +65,7 @@ export class CotizacionService {
     const totalPagado = pagoMensual * plazoMeses + enganche;
 
     const nuevaCotizacion = new this.cotizacionModel({
-      cliente: cliente._id, 
+      cliente: cliente._id,
       coche: coche._id,
       precioCoche: precio,
       enganche: enganche,
@@ -77,14 +78,14 @@ export class CotizacionService {
     });
 
     const cotizacionGuardada = await nuevaCotizacion.save();
-    
+
     const clienteDoc = await this.userService.findById(cliente._id.toString());
     if (clienteDoc) {
-        await this.enviarCorreoCotizacionOneSignal(
-          clienteDoc,
-          coche,
-          cotizacionGuardada,
-        );
+      await this.enviarCorreoCotizacionOneSignal(
+        clienteDoc,
+        coche,
+        cotizacionGuardada,
+      );
     }
 
     return cotizacionGuardada;
@@ -122,7 +123,7 @@ export class CotizacionService {
     const totalPagado = pagoMensual * plazoMeses + enganche;
 
     const nuevaCotizacion = new this.cotizacionModel({
-      cliente: cliente._id, 
+      cliente: cliente._id,
       coche: coche._id,
       precioCoche: precio,
       enganche: enganche,
@@ -135,7 +136,7 @@ export class CotizacionService {
     });
 
     const cotizacionGuardada = await nuevaCotizacion.save();
-    
+
     const clienteDoc = await this.userService.findById(cliente._id.toString());
 
     return cotizacionGuardada;
@@ -149,7 +150,7 @@ export class CotizacionService {
       plazoMeses: number
     },
   ): Promise<CotizacionDocument> {
-    
+
     const cliente = await this.userService.findById(dto.clienteId);
     if (!cliente) {
       throw new NotFoundException('El cliente seleccionado no existe.');
@@ -169,7 +170,7 @@ export class CotizacionService {
       dto.plazoMeses,
     );
   }
-  
+
   async getCotizacionesPendientes(user: ValidatedUser): Promise<CotizacionDocument[]> {
     return this.cotizacionModel
       .find({ status: 'Pendiente', vendedor: user._id })
@@ -188,7 +189,7 @@ export class CotizacionService {
 
   async getCotizacionesAprobadasCliente(clienteId: string): Promise<CotizacionDocument[]> {
     return this.cotizacionModel
-      .find({ 
+      .find({
         status: 'Aprobada',
         cliente: new Types.ObjectId(clienteId)
       })
@@ -196,22 +197,22 @@ export class CotizacionService {
       .populate('coche', 'marca modelo ano precioBase imageUrl condicion transmision kilometraje')
       .exec();
   }
-  
-  async updateNotasVendedor(
-      id: string,
-      notasVendedor: string,
-    ): Promise<CotizacionDocument> {
-      const cotizacion = await this.cotizacionModel.findById(id);
-      
-      if (!cotizacion) {
-        throw new NotFoundException('Cotización no encontrada.');
-      }
 
-      cotizacion.notasVendedor = notasVendedor;
-      return await cotizacion.save();
+  async updateNotasVendedor(
+    id: string,
+    notasVendedor: string,
+  ): Promise<CotizacionDocument> {
+    const cotizacion = await this.cotizacionModel.findById(id);
+
+    if (!cotizacion) {
+      throw new NotFoundException('Cotización no encontrada.');
     }
 
-  
+    cotizacion.notasVendedor = notasVendedor;
+    return await cotizacion.save();
+  }
+
+
   async getCotizacionesAll(): Promise<CotizacionDocument[]> {
     return this.cotizacionModel
       .find({})
@@ -221,22 +222,22 @@ export class CotizacionService {
       .exec();
   }
 
-  async setSellerToPricing(idPricing: string, idSeller: string) {    
+  async setSellerToPricing(idPricing: string, idSeller: string) {
     const cotizacion = await this.cotizacionModel.findById(idPricing).exec();
-    
+
     if (!cotizacion) {
       throw new InternalServerErrorException('Cotización no encontrada.');
     }
     cotizacion.set('vendedor', idSeller);
     return cotizacion.save();
   }
-  
+
   async updateCotizacionStatus(
     id: string,
-    vendedor: ValidatedUser, 
+    vendedor: ValidatedUser,
     status: 'Aprobada' | 'Rechazada',
   ): Promise<CotizacionDocument> {
-    
+
     const cotizacion = await this.cotizacionModel
       .findById(id)
       .populate<{ cliente: UserDocument }>('cliente')
@@ -251,7 +252,12 @@ export class CotizacionService {
     cotizacion.vendedor = new Types.ObjectId(vendedor._id.toString());
 
     const cotizacionActualizada = await cotizacion.save();
-    
+
+    // Si la cotización fue aprobada, crear Compra si no existe
+    if (status === 'Aprobada') {
+      await this.compraService.createFromCotizacion(cotizacionActualizada);
+    }
+
     try {
       await this.enviarCorreoResultadoCotizacionOneSignal(
         cotizacion.cliente,
@@ -266,8 +272,8 @@ export class CotizacionService {
   }
 
   private async enviarCorreoCotizacionOneSignal(
-    cliente: UserDocument, 
-    coche: ProductDocument, 
+    cliente: UserDocument,
+    coche: ProductDocument,
     cotizacion: CotizacionDocument
   ): Promise<void> {
     const subject = 'Tu cotización ha sido generada - SmartAssistant CRM';
@@ -321,16 +327,16 @@ export class CotizacionService {
   }
 
   private async enviarCorreoResultadoCotizacionOneSignal(
-    cliente: UserDocument, 
-    coche: ProductDocument, 
+    cliente: UserDocument,
+    coche: ProductDocument,
     cotizacion: CotizacionDocument
   ): Promise<void> {
     try {
       const aprobado = cotizacion.status === 'Aprobada';
-      const subject = aprobado 
-        ? '¡Tu solicitud ha sido aprobada! - SmartAssistant CRM' 
+      const subject = aprobado
+        ? '¡Tu solicitud ha sido aprobada! - SmartAssistant CRM'
         : 'Resultado de tu solicitud - SmartAssistant CRM';
-      
+
       const mensaje = aprobado
         ? `
           <p>Nos complace informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #10b981;">APROBADA</b>.</p>
@@ -380,7 +386,7 @@ export class CotizacionService {
         subject,
         htmlBody
       );
-      
+
       console.log(`Email de ${cotizacion.status} enviado exitosamente a ${cliente.email}`);
     } catch (error) {
       console.error('Error enviando correo de resultado:', error);
@@ -391,7 +397,7 @@ export class CotizacionService {
   async getTopProductos() {
     try {
       const topProductos = await this.cotizacionModel.aggregate([
-        { $match: { status: 'Aprobada'} },
+        { $match: { status: 'Aprobada' } },
         { $group: { _id: '$coche', count: { $sum: 1 } } },
 
         { $sort: { count: -1 } },
