@@ -64,7 +64,7 @@ export class CompraService {
       cotizacion: cotizacion._id,
       cliente: cotizacion.cliente,
       vendedor: cotizacion.vendedor,
-      status: StatusCompra.EN_REVISION,
+      status: StatusCompra.APROBADA,
       saldoPendiente: saldoPendiente - (cotizacion.enganche || 0),
       montoTotalCredito: saldoPendiente, // Campo informativo opcional
     });
