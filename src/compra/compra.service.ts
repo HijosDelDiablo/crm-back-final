@@ -58,15 +58,16 @@ export class CompraService {
     }
 
     // Inicializar saldoPendiente con solo los pagos mensuales (sin enganche)
-    const saldoPendiente = parseFloat((cotizacion.pagoMensual * cotizacion.plazoMeses).toFixed(2));
+    const totalCredito = parseFloat((cotizacion.pagoMensual * cotizacion.plazoMeses).toFixed(2));
 
     const nuevaCompra = new this.compraModel({
       cotizacion: cotizacion._id,
       cliente: cotizacion.cliente,
       vendedor: cotizacion.vendedor,
       status: StatusCompra.PENDIENTE,
-      saldoPendiente,
-      montoTotalCredito: saldoPendiente, // Campo informativo opcional
+      saldoPendiente: totalCredito,
+      montoTotalCredito: totalCredito,
+      totalPagado: 0,
     });
     return await nuevaCompra.save();
   }
@@ -134,8 +135,8 @@ export class CompraService {
         capacidadPago,
       },
       resultadoBuro,
-      saldoPendiente: parseFloat((cotizacion.totalPagado - (cotizacion.enganche || 0)).toFixed(2)), // Saldo pendiente inicial: total a pagar menos enganche
-      totalPagado: parseFloat((cotizacion.enganche || 0).toFixed(2)), // El enganche se considera pagado al iniciar la compra
+      saldoPendiente: parseFloat((cotizacion.pagoMensual * cotizacion.plazoMeses).toFixed(2)), // Saldo pendiente inicial: solo mensualidades
+      totalPagado: 0, // Inicialmente no se ha pagado nada
     });
 
     const compraGuardada = await nuevaCompra.save();
@@ -224,15 +225,7 @@ export class CompraService {
     if (aprobarCompraDto.status === StatusCompra.COMPLETADA) {
       compra.fechaEntrega = new Date();
 
-      await this.productModel.findByIdAndUpdate(
-        cotizacion.coche._id,
-        {
-          $inc: { stock: -1, vecesVendido: 1 },
-          disponible: false
-        }
-      );
-
-      this.logger.log(`Stock descontado para producto: ${cotizacion.coche._id}`);
+      // Nota: El stock se decrementa cuando la compra se marca como COMPLETADA al completar los pagos
     }
 
     const compraActualizada = await compra.save();
