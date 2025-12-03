@@ -12,6 +12,7 @@ import { ValidatedUser } from '../user/schemas/user.schema';
 import { UserService } from '../user/user.service';
 import { OneSignalService } from '../notifications/onesignal.service';
 import { Cotizacion, CotizacionDocument } from './schemas/cotizacion.schema';
+import { CompraService } from '../compra/compra.service';
 
 interface CotizacionWithCliente extends Omit<CotizacionDocument, 'cliente'> {
   cliente: UserDocument;
@@ -32,7 +33,7 @@ export class CotizacionService {
     private cotizacionModel: Model<CotizacionDocument>,
     private readonly oneSignalService: OneSignalService,
     private readonly userService: UserService,
-    private readonly compraService: import('../compra/compra.service').CompraService,
+    private readonly compraService: CompraService,
   ) { }
 
   async generarCotizacion(
