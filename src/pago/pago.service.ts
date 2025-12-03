@@ -30,6 +30,11 @@ export class PagoService {
             throw new ForbiddenException('Solo vendedores o administradores pueden registrar pagos');
         }
 
+        // Validar que el compraId sea un ObjectId válido
+        if (!Types.ObjectId.isValid(dto.compraId)) {
+            throw new BadRequestException('El ID de la compra no es válido');
+        }
+
         // Buscar la Compra
         const compra = await this.compraModel.findById(dto.compraId);
         if (!compra) {
@@ -87,6 +92,9 @@ export class PagoService {
     }
 
     async getPagosByCompraId(compraId: string): Promise<PagoDocument[]> {
+        if (!Types.ObjectId.isValid(compraId)) {
+            throw new BadRequestException('El ID de la compra no es válido');
+        }
         return this.pagoModel
             .find({ compra: compraId })
             .populate('cliente', 'nombre email')
@@ -105,6 +113,9 @@ export class PagoService {
     }
 
     async getPagosByCotizacionId(cotizacionId: string, user: ValidatedUser): Promise<PagoDocument[]> {
+        if (!Types.ObjectId.isValid(cotizacionId)) {
+            throw new BadRequestException('El ID de la cotización no es válido');
+        }
         // Verificar que la cotización existe y el usuario tiene permisos
         const cotizacion = await this.cotizacionModel.findById(cotizacionId);
         if (!cotizacion) {
