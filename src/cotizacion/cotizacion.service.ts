@@ -174,11 +174,15 @@ export class CotizacionService {
   }
 
   async getCotizacionesPendientes(user: ValidatedUser): Promise<CotizacionDocument[]> {
-    return this.cotizacionModel
-      .find({ status: 'Pendiente', vendedor: user._id })
+
+
+    const data: CotizacionDocument[] = await this.cotizacionModel
+      .find({ status: 'Pendiente', vendedor: new Types.ObjectId(user._id) })
       .populate('cliente', 'nombre email telefono')
       .populate('coche', 'marca modelo ano precioBase')
       .exec();
+    console.log(data);
+    return data;
   }
 
   async getCotizacionesAprovadas(): Promise<CotizacionDocument[]> {
@@ -263,7 +267,9 @@ export class CotizacionService {
     if (!cotizacion) {
       throw new InternalServerErrorException('Cotización no encontrada.');
     }
-    cotizacion.set('vendedor', idSeller);
+
+    cotizacion.vendedor = new Types.ObjectId(idSeller);
+
     return cotizacion.save();
   }
 

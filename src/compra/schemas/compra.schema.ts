@@ -6,7 +6,7 @@ import { Cotizacion } from '../../cotizacion/schemas/cotizacion.schema';
 export type CompraDocument = Compra & Document;
 
 export enum StatusCompra {
-  PENDIENTE = 'Pendiente',
+  PENDIENTE = "Pendiente",
   EN_REVISION = 'En revisión',
   APROBADA = 'Aprobada',
   RECHAZADA = 'Rechazada',
