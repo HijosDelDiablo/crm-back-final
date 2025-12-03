@@ -16,7 +16,6 @@ import { CreateCompraDto } from './dto/create-compra.dto';
 import { AprobarCompraDto } from './dto/approval.dto';
 import { SimulacionService } from './services/simulacion.service';
 import { OneSignalService } from '../notifications/onesignal.service';
-import { ConfigService } from '@nestjs/config';
 
 interface ResultadoBanco {
   aprobado: boolean;
