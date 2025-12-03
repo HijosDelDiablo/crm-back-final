@@ -36,6 +36,52 @@ import { Rol } from '../auth/enums/rol.enum';
 export class ProductController {
   constructor(private readonly productService: ProductService) { }
 
+  @ApiOperation({
+    summary: 'Subir imagen de producto (Admin)',
+    description: `
+    Permite subir una imagen para un producto específico.
+    
+    **Proceso:**
+    - Valida que el producto exista
+    - Guarda la imagen en el servidor
+    - Actualiza la URL de imagen del producto
+    
+    **Validaciones:**
+    - Solo administradores pueden subir imágenes
+    - Formato de archivo: JPG, PNG, etc.
+    - Tamaño máximo de archivo limitado por configuración del servidor
+    `
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', description: 'ID del producto' })
+  @ApiBody({
+    description: 'Archivo de imagen a subir',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Archivo de imagen (JPG, PNG, etc.)'
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Imagen subida exitosamente',
+    schema: {
+      example: {
+        "_id": "507f1f77bcf86cd799439011",
+        "marca": "Toyota",
+        "modelo": "Corolla",
+        "imageUrl": "/uploads/file-1705320000000-123456789.jpg",
+        "updatedAt": "2024-01-15T15:00:00.000Z"
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Archivo inválido o producto no encontrado' })
+  @ApiResponse({ status: 403, description: 'No autorizado para subir imágenes' })
   @Post(':id/upload')
   @UseGuards(RolesGuard)
   @Roles(Rol.ADMIN)
@@ -53,20 +99,6 @@ export class ProductController {
       }),
     }),
   )
-  @ApiOperation({ summary: 'Upload product image (Admin)' })
-  @ApiConsumes('multipart/form-data')
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
   async uploadImage(
     @Param('id') productId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -75,72 +107,390 @@ export class ProductController {
     return this.productService.update(productId, { imageUrl });
   }
 
+  @ApiOperation({
+    summary: 'Obtener todos los productos (Admin/Vendedor/Cliente)',
+    description: 'Retorna la lista completa de productos incluyendo información detallada para gestión interna.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista completa de productos',
+    schema: {
+      example: [
+        {
+          "_id": "507f1f77bcf86cd799439011",
+          "marca": "Toyota",
+          "modelo": "Corolla",
+          "ano": 2022,
+          "precioBase": 25000,
+          "vin": "1HGBH41JXMN109186",
+          "color": "Blanco",
+          "kilometraje": 15000,
+          "estado": "Disponible",
+          "imageUrl": "/uploads/file-1705320000000-123456789.jpg",
+          "proveedor": {
+            "_id": "507f1f77bcf86cd799439012",
+            "nombre": "AutoImport S.A.",
+            "contacto": "contacto@autoimport.com"
+          },
+          "createdAt": "2024-01-15T10:00:00.000Z",
+          "updatedAt": "2024-01-15T15:00:00.000Z"
+        }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
   @Get('all')
   @Roles(Rol.ADMIN, Rol.VENDEDOR, Rol.CLIENTE)
-  @ApiOperation({ summary: 'Get all products (Admin)' })
-  @ApiResponse({ status: 200, description: 'Return all products' })
   findAllForAdmin() {
     return this.productService.findAllForAdmin();
   }
 
+  @ApiOperation({
+    summary: 'Crear producto (Admin)',
+    description: `
+    Permite crear un nuevo producto/vehículo en el inventario.
+    
+    **Proceso:**
+    - Valida los datos del vehículo
+    - Crea el registro en la base de datos
+    - Inicialmente sin imagen (puede subirse posteriormente)
+    
+    **Validaciones:**
+    - VIN único en el sistema
+    - Precio base positivo
+    - Año válido
+    - Solo administradores pueden crear productos
+    `
+  })
+  @ApiBody({
+    type: CreateProductDto,
+    description: 'Datos del producto a crear',
+    examples: {
+      'vehiculo_nuevo': {
+        summary: 'Vehículo nuevo',
+        value: {
+          marca: "Toyota",
+          modelo: "Corolla",
+          ano: 2023,
+          precioBase: 28000,
+          vin: "1HGBH41JXMN109186",
+          color: "Rojo",
+          kilometraje: 0,
+          estado: "Disponible",
+          descripcion: "Vehículo nuevo con garantía de fábrica"
+        }
+      },
+      'vehiculo_usado': {
+        summary: 'Vehículo usado',
+        value: {
+          marca: "Honda",
+          modelo: "Civic",
+          ano: 2020,
+          precioBase: 18000,
+          vin: "2HGFC2F59LH123456",
+          color: "Azul",
+          kilometraje: 25000,
+          estado: "Disponible",
+          descripcion: "Excelente estado, único dueño, servicio al día"
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Producto creado exitosamente',
+    schema: {
+      example: {
+        "_id": "507f1f77bcf86cd799439011",
+        "marca": "Toyota",
+        "modelo": "Corolla",
+        "ano": 2023,
+        "precioBase": 28000,
+        "vin": "1HGBH41JXMN109186",
+        "color": "Rojo",
+        "kilometraje": 0,
+        "estado": "Disponible",
+        "descripcion": "Vehículo nuevo con garantía de fábrica",
+        "createdAt": "2024-01-15T16:00:00.000Z",
+        "updatedAt": "2024-01-15T16:00:00.000Z"
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o VIN duplicado' })
+  @ApiResponse({ status: 403, description: 'No autorizado para crear productos' })
   @Post()
   @UseGuards(RolesGuard)
   @Roles(Rol.ADMIN)
-  @ApiOperation({ summary: 'Create product (Admin)' })
-  @ApiResponse({ status: 201, description: 'Product created' })
-  @ApiBody({ type: CreateProductDto })
   create(@Body() createProductDto: CreateProductDto) {
     return this.productService.create(createProductDto);
   }
 
+  @ApiOperation({
+    summary: 'Obtener productos disponibles (Público)',
+    description: 'Retorna la lista de productos disponibles para la venta en la tienda virtual. Accesible sin autenticación.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de productos disponibles',
+    schema: {
+      example: [
+        {
+          "_id": "507f1f77bcf86cd799439011",
+          "marca": "Toyota",
+          "modelo": "Corolla",
+          "ano": 2023,
+          "precioBase": 28000,
+          "color": "Rojo",
+          "kilometraje": 0,
+          "estado": "Disponible",
+          "imageUrl": "/uploads/file-1705320000000-123456789.jpg",
+          "descripcion": "Vehículo nuevo con garantía de fábrica"
+        },
+        {
+          "_id": "507f1f77bcf86cd799439013",
+          "marca": "Honda",
+          "modelo": "Civic",
+          "ano": 2020,
+          "precioBase": 18000,
+          "color": "Azul",
+          "kilometraje": 25000,
+          "estado": "Disponible",
+          "imageUrl": "/uploads/file-1705320000001-987654321.jpg",
+          "descripcion": "Excelente estado, único dueño"
+        }
+      ]
+    }
+  })
   @Get('tienda')
-  @ApiOperation({ summary: 'Get available products' })
-  @ApiResponse({ status: 200, description: 'Return available products' })
   findAllAvailable() {
     return this.productService.findAllAvailable();
   }
 
+  @ApiOperation({
+    summary: 'Obtener producto por ID',
+    description: 'Retorna los detalles completos de un producto específico por su ID.'
+  })
+  @ApiParam({ name: 'id', description: 'ID del producto' })
+  @ApiResponse({
+    status: 200,
+    description: 'Detalles del producto',
+    schema: {
+      example: {
+        "_id": "507f1f77bcf86cd799439011",
+        "marca": "Toyota",
+        "modelo": "Corolla",
+        "ano": 2023,
+        "precioBase": 28000,
+        "vin": "1HGBH41JXMN109186",
+        "color": "Rojo",
+        "kilometraje": 0,
+        "estado": "Disponible",
+        "imageUrl": "/uploads/file-1705320000000-123456789.jpg",
+        "descripcion": "Vehículo nuevo con garantía de fábrica",
+        "proveedor": {
+          "_id": "507f1f77bcf86cd799439012",
+          "nombre": "AutoImport S.A.",
+          "contacto": "contacto@autoimport.com"
+        },
+        "createdAt": "2024-01-15T16:00:00.000Z",
+        "updatedAt": "2024-01-15T16:00:00.000Z"
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   @Get(':id')
-  @ApiOperation({ summary: 'Get product by ID' })
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  @ApiResponse({ status: 200, description: 'Return product' })
   findOne(@Param('id') id: string) {
     return this.productService.findById(id);
   }
 
+  @ApiOperation({
+    summary: 'Actualizar producto (Admin)',
+    description: `
+    Permite actualizar la información de un producto existente.
+    
+    **Campos actualizables:**
+    - Precio base
+    - Estado (Disponible, Vendido, Reservado, etc.)
+    - Descripción
+    - Información del vehículo
+    
+    **Validaciones:**
+    - Solo administradores pueden actualizar productos
+    - El producto debe existir
+    - VIN no puede duplicarse si se actualiza
+    `
+  })
+  @ApiParam({ name: 'id', description: 'ID del producto a actualizar' })
+  @ApiBody({
+    type: UpdateProductDto,
+    description: 'Campos a actualizar',
+    examples: {
+      'actualizar_precio': {
+        summary: 'Actualizar precio',
+        value: {
+          precioBase: 26500
+        }
+      },
+      'marcar_vendido': {
+        summary: 'Marcar como vendido',
+        value: {
+          estado: "Vendido"
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto actualizado exitosamente',
+    schema: {
+      example: {
+        "_id": "507f1f77bcf86cd799439011",
+        "marca": "Toyota",
+        "modelo": "Corolla",
+        "ano": 2023,
+        "precioBase": 26500,
+        "estado": "Disponible",
+        "updatedAt": "2024-01-15T17:00:00.000Z"
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 403, description: 'No autorizado para actualizar productos' })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(Rol.ADMIN)
-  @ApiOperation({ summary: 'Update product (Admin)' })
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  @ApiBody({ type: UpdateProductDto })
   update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
     return this.productService.update(id, updateProductDto);
   }
 
+  @ApiOperation({
+    summary: 'Buscar producto por VIN',
+    description: 'Busca un producto específico utilizando su número de identificación de vehículo (VIN).'
+  })
+  @ApiParam({
+    name: 'vin',
+    description: 'Número de Identificación de Vehículo (VIN)',
+    example: '1HGBH41JXMN109186'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto encontrado',
+    schema: {
+      example: {
+        "_id": "507f1f77bcf86cd799439011",
+        "marca": "Toyota",
+        "modelo": "Corolla",
+        "ano": 2023,
+        "precioBase": 28000,
+        "vin": "1HGBH41JXMN109186",
+        "color": "Rojo",
+        "kilometraje": 0,
+        "estado": "Disponible",
+        "imageUrl": "/uploads/file-1705320000000-123456789.jpg",
+        "descripcion": "Vehículo nuevo con garantía de fábrica"
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado con ese VIN' })
   @Get('find-by-vin/:vin')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Find product by VIN' })
-  @ApiParam({ name: 'vin', description: 'Vehicle Identification Number' })
   async findByVin(@Param('vin') vin: string) {
     return this.productService.findByVin(vin);
   }
 
+  @ApiOperation({
+    summary: 'Eliminar producto (Admin)',
+    description: `
+    Elimina un producto del inventario.
+    
+    **Consideraciones:**
+    - Solo productos que no estén asociados a compras activas pueden eliminarse
+    - La eliminación es permanente
+    - Se recomienda marcar como "No disponible" en lugar de eliminar
+    
+    **Validaciones:**
+    - Solo administradores pueden eliminar productos
+    - El producto debe existir
+    - No debe tener compras activas asociadas
+    `
+  })
+  @ApiParam({ name: 'id', description: 'ID del producto a eliminar' })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto eliminado exitosamente',
+    schema: {
+      example: {
+        "message": "Producto eliminado correctamente",
+        "_id": "507f1f77bcf86cd799439011"
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'No se puede eliminar producto con compras activas' })
+  @ApiResponse({ status: 403, description: 'No autorizado para eliminar productos' })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Rol.ADMIN)
-  @ApiOperation({ summary: 'Delete product (Admin)' })
-  @ApiParam({ name: 'id', description: 'Product ID' })
   remove(@Param('id') id: string) {
     return this.productService.delete(id);
   }
 
+  @ApiOperation({
+    summary: 'Asignar proveedor a producto (Admin)',
+    description: `
+    Asigna un proveedor específico a un producto.
+    
+    **Uso típico:**
+    - Vincular productos importados con sus proveedores
+    - Rastrear origen de los vehículos
+    - Gestionar relaciones comerciales
+    
+    **Validaciones:**
+    - Solo administradores pueden asignar proveedores
+    - El producto y proveedor deben existir
+    - Un producto puede tener solo un proveedor asignado
+    `
+  })
+  @ApiParam({ name: 'productId', description: 'ID del producto' })
+  @ApiBody({
+    description: 'ID del proveedor a asignar',
+    schema: {
+      type: 'object',
+      properties: {
+        proveedorId: {
+          type: 'string',
+          description: 'ID del proveedor',
+          example: '507f1f77bcf86cd799439012'
+        }
+      },
+      required: ['proveedorId']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Proveedor asignado exitosamente',
+    schema: {
+      example: {
+        "_id": "507f1f77bcf86cd799439011",
+        "marca": "Toyota",
+        "modelo": "Corolla",
+        "proveedor": {
+          "_id": "507f1f77bcf86cd799439012",
+          "nombre": "AutoImport S.A.",
+          "contacto": "contacto@autoimport.com",
+          "telefono": "555-0101"
+        },
+        "updatedAt": "2024-01-15T18:00:00.000Z"
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 403, description: 'No autorizado para asignar proveedores' })
+  @ApiResponse({ status: 404, description: 'Producto o proveedor no encontrado' })
   @Patch(':productId/asignar-proveedor')
   @UseGuards(RolesGuard)
   @Roles(Rol.ADMIN)
-  @ApiOperation({ summary: 'Assign provider to product (Admin)' })
-  @ApiParam({ name: 'productId', description: 'Product ID' })
-  @ApiBody({ schema: { type: 'object', properties: { proveedorId: { type: 'string' } } } })
   async asignarProveedor(
     @Param('productId') productId: string,
     @Body() body: { proveedorId: string },
@@ -148,11 +498,51 @@ export class ProductController {
     return this.productService.asignarProveedor(productId, body.proveedorId);
   }
 
+  @ApiOperation({
+    summary: 'Obtener productos por proveedor (Admin/Vendedor)',
+    description: 'Retorna todos los productos asociados a un proveedor específico. Útil para gestionar inventario por proveedor.'
+  })
+  @ApiParam({ name: 'proveedorId', description: 'ID del proveedor' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de productos del proveedor',
+    schema: {
+      example: [
+        {
+          "_id": "507f1f77bcf86cd799439011",
+          "marca": "Toyota",
+          "modelo": "Corolla",
+          "ano": 2023,
+          "precioBase": 28000,
+          "vin": "1HGBH41JXMN109186",
+          "estado": "Disponible",
+          "proveedor": {
+            "_id": "507f1f77bcf86cd799439012",
+            "nombre": "AutoImport S.A."
+          }
+        },
+        {
+          "_id": "507f1f77bcf86cd799439013",
+          "marca": "Honda",
+          "modelo": "Civic",
+          "ano": 2022,
+          "precioBase": 22000,
+          "vin": "2HGFC2F59LH123456",
+          "estado": "Disponible",
+          "proveedor": {
+            "_id": "507f1f77bcf86cd799439012",
+            "nombre": "AutoImport S.A."
+          }
+        }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Rol insuficiente' })
+  @ApiResponse({ status: 404, description: 'Proveedor no encontrado' })
   @Get('por-proveedor/:proveedorId')
   @UseGuards(RolesGuard)
   @Roles(Rol.ADMIN, Rol.VENDEDOR)
-  @ApiOperation({ summary: 'Get products by provider' })
-  @ApiParam({ name: 'proveedorId', description: 'Provider ID' })
   async findByProveedor(@Param('proveedorId') proveedorId: string) {
     return this.productService.findByProveedor(proveedorId);
   }
