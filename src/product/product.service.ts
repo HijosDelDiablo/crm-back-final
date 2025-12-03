@@ -318,11 +318,11 @@ export class ProductService {
       .findById(productId)
       .populate('proveedor', 'nombre contacto email telefono')
       .exec();
-    
+
     if (!result) {
       throw new NotFoundException('Error al recuperar el producto actualizado');
     }
-    
+
     return result;
   }
 
