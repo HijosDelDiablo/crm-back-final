@@ -5,6 +5,7 @@ import { Pago, PagoDocument } from './schemas/pago.schema';
 import { Compra, CompraDocument, StatusCompra } from '../compra/schemas/compra.schema';
 import { Cotizacion, CotizacionDocument } from '../cotizacion/schemas/cotizacion.schema';
 import { ValidatedUser } from '../user/schemas/user.schema';
+import { ProductService } from '../product/product.service';
 
 interface RegistrarPagoDto {
     compraId: string;
@@ -19,6 +20,7 @@ export class PagoService {
         @InjectModel(Pago.name) private pagoModel: Model<PagoDocument>,
         @InjectModel(Compra.name) private compraModel: Model<CompraDocument>,
         @InjectModel(Cotizacion.name) private cotizacionModel: Model<CotizacionDocument>,
+        private readonly productService: ProductService,
     ) { }
 
     async registrarPago(
@@ -41,6 +43,10 @@ export class PagoService {
             throw new NotFoundException('Compra no encontrada');
         }
 
+        // Normalizar valores monetarios para evitar problemas de precisión
+        compra.saldoPendiente = parseFloat(compra.saldoPendiente.toFixed(2));
+        compra.totalPagado = parseFloat(compra.totalPagado.toFixed(2));
+
         // Validación adicional para vendedores
         if (usuarioActual.rol === 'VENDEDOR' && compra.vendedor && compra.vendedor.toString() !== usuarioActual._id.toString()) {
             throw new ForbiddenException('Solo el vendedor asignado o un administrador pueden registrar pagos para esta compra');
@@ -60,6 +66,7 @@ export class PagoService {
         if (typeof dto.monto !== 'number' || dto.monto <= 0) {
             throw new BadRequestException('El monto debe ser mayor a 0');
         }
+        dto.monto = parseFloat(dto.monto.toFixed(2)); // Redondear a 2 decimales
         if (dto.monto > compra.saldoPendiente) {
             throw new BadRequestException('El monto del pago no puede ser mayor al saldo pendiente actual');
         }
@@ -76,18 +83,23 @@ export class PagoService {
         });
 
         // Actualizar la Compra
-        this.actualizarSaldoYStatus(compra, dto.monto);
-        compra.totalPagado += dto.monto; // Incrementar el total pagado
+        await this.actualizarSaldoYStatus(compra, dto.monto);
+        compra.totalPagado = parseFloat((compra.totalPagado + dto.monto).toFixed(2)); // Incrementar el total pagado
         await compra.save();
 
         // Guardar y devolver el Pago
         return await pago.save();
     }
 
-    private actualizarSaldoYStatus(compra: CompraDocument, monto: number): void {
-        compra.saldoPendiente = Math.max(0, compra.saldoPendiente - monto);
+    private async actualizarSaldoYStatus(compra: CompraDocument, monto: number): Promise<void> {
+        compra.saldoPendiente = Math.round((compra.saldoPendiente - monto) * 100) / 100;
+        compra.saldoPendiente = Math.max(0, compra.saldoPendiente);
         if (compra.saldoPendiente === 0) {
             compra.status = StatusCompra.COMPLETADA;
+            // Actualizar el estatus de la cotización asociada
+            await this.cotizacionModel.findByIdAndUpdate(compra.cotizacion, { status: 'Completada' }).exec();
+            // Decrementar stock del producto
+            await this.productService.decrementStock(compra.cotizacion.coche.toString(), 1);
         }
     }
 

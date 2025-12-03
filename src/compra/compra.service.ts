@@ -132,8 +132,8 @@ export class CompraService {
         capacidadPago,
       },
       resultadoBuro,
-      saldoPendiente: cotizacion.totalPagado - cotizacion.enganche, // Saldo pendiente inicial: total a pagar menos enganche
-      totalPagado: cotizacion.enganche, // El enganche se considera pagado al iniciar la compra
+      saldoPendiente: parseFloat((cotizacion.totalPagado - cotizacion.enganche).toFixed(2)), // Saldo pendiente inicial: total a pagar menos enganche
+      totalPagado: parseFloat(cotizacion.enganche.toFixed(2)), // El enganche se considera pagado al iniciar la compra
     });
 
     const compraGuardada = await nuevaCompra.save();

@@ -10,6 +10,7 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -152,13 +153,14 @@ export class ProductController {
     
     **Proceso:**
     - Valida los datos del vehículo
-    - Crea el registro en la base de datos
+    - Crea el registro en la base de datos con stock inicial (default 1)
     - Inicialmente sin imagen (puede subirse posteriormente)
     
     **Validaciones:**
     - VIN único en el sistema
     - Precio base positivo
     - Año válido
+    - Stock debe ser >= 0 (opcional, default 1)
     - Solo administradores pueden crear productos
     `
   })
@@ -177,7 +179,8 @@ export class ProductController {
           color: "Rojo",
           kilometraje: 0,
           estado: "Disponible",
-          descripcion: "Vehículo nuevo con garantía de fábrica"
+          descripcion: "Vehículo nuevo con garantía de fábrica",
+          stock: 1
         }
       },
       'vehiculo_usado': {
@@ -191,7 +194,8 @@ export class ProductController {
           color: "Azul",
           kilometraje: 25000,
           estado: "Disponible",
-          descripcion: "Excelente estado, único dueño, servicio al día"
+          descripcion: "Excelente estado, único dueño, servicio al día",
+          stock: 1
         }
       }
     }
@@ -545,5 +549,70 @@ export class ProductController {
   @Roles(Rol.ADMIN, Rol.VENDEDOR)
   async findByProveedor(@Param('proveedorId') proveedorId: string) {
     return this.productService.findByProveedor(proveedorId);
+  }
+
+  @ApiOperation({
+    summary: 'Incrementar stock de producto (Admin/Vendedor)',
+    description: `
+    Permite agregar unidades al stock de un producto existente.
+    
+    **Proceso:**
+    - Valida que el producto exista
+    - Incrementa el stock en la cantidad especificada
+    - Actualiza automáticamente el campo 'disponible' si el stock > 0
+    
+    **Validaciones:**
+    - Cantidad debe ser positiva
+    - Solo administradores o vendedores pueden modificar stock
+    `
+  })
+  @ApiParam({ name: 'id', description: 'ID del producto' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        quantity: {
+          type: 'number',
+          minimum: 1,
+          description: 'Cantidad a agregar al stock'
+        }
+      },
+      required: ['quantity']
+    },
+    examples: {
+      'incremento_basico': {
+        summary: 'Incremento básico',
+        value: { quantity: 5 }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock incrementado exitosamente',
+    schema: {
+      example: {
+        "_id": "507f1f77bcf86cd799439011",
+        "marca": "Toyota",
+        "modelo": "Corolla",
+        "stock": 6,
+        "disponible": true,
+        "updatedAt": "2024-01-15T16:00:00.000Z"
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Cantidad inválida' })
+  @ApiResponse({ status: 403, description: 'No autorizado para modificar stock' })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
+  @Patch(':id/increment-stock')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN, Rol.VENDEDOR)
+  async incrementStock(
+    @Param('id') id: string,
+    @Body() body: { quantity: number },
+  ) {
+    if (!body.quantity || body.quantity <= 0) {
+      throw new BadRequestException('La cantidad debe ser un número positivo');
+    }
+    return this.productService.incrementStock(id, body.quantity);
   }
 }

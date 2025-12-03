@@ -21,6 +21,7 @@ export class ProductService {
     const productData: any = {
       ...dto,
       vin: dto.vin.toUpperCase(),
+      stock: dto.stock || 1, // Cantidad en stock, default 1
     };
 
     if (dto.proveedor) {
