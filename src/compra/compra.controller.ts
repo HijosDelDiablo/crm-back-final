@@ -1,12 +1,13 @@
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  UseGuards, 
-  Get, 
-  Patch, 
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  Patch,
   Param,
-  Query 
+  Query,
+  Req
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { CompraService } from './compra.service';
@@ -18,13 +19,14 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Rol } from '../auth/enums/rol.enum';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import type { ValidatedUser } from '../user/schemas/user.schema';
+import { ForbiddenException } from '@nestjs/common';
 
 @ApiTags('Compras')
 @Controller('compra')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class CompraController {
-  constructor(private readonly compraService: CompraService) {}
+  constructor(private readonly compraService: CompraService) { }
 
   @Post()
   @UseGuards(RolesGuard)
@@ -103,5 +105,39 @@ export class CompraController {
   @ApiResponse({ status: 200, description: 'Return purchase' })
   getCompraById(@Param('id') compraId: string) {
     return this.compraService.getCompraById(compraId);
+  }
+
+  @Get('por-cliente/:clienteId')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN, Rol.CLIENTE)
+  @ApiOperation({ summary: 'Get purchases by client ID (Admin or Client)' })
+  @ApiParam({ name: 'clienteId', description: 'Client ID' })
+  @ApiResponse({ status: 200, description: 'Return purchases for the client' })
+  async getComprasPorCliente(
+    @Param('clienteId') clienteId: string,
+    @Req() req: any,
+  ) {
+    const usuarioActual: ValidatedUser = req.user;
+    if (usuarioActual.rol === Rol.CLIENTE && usuarioActual._id.toString() !== clienteId) {
+      throw new ForbiddenException('No tienes permiso para ver las compras de este cliente');
+    }
+    return this.compraService.findByClienteId(clienteId);
+  }
+
+  @Get('por-vendedor/:vendedorId')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN, Rol.VENDEDOR)
+  @ApiOperation({ summary: 'Get purchases by seller ID (Admin or Seller)' })
+  @ApiParam({ name: 'vendedorId', description: 'Seller ID' })
+  @ApiResponse({ status: 200, description: 'Return purchases for the seller' })
+  async getComprasPorVendedor(
+    @Param('vendedorId') vendedorId: string,
+    @Req() req: any,
+  ) {
+    const usuarioActual: ValidatedUser = req.user;
+    if (usuarioActual.rol === Rol.VENDEDOR && usuarioActual._id.toString() !== vendedorId) {
+      throw new ForbiddenException('No tienes permiso para ver las compras de este vendedor');
+    }
+    return this.compraService.findByVendedorId(vendedorId);
   }
 }

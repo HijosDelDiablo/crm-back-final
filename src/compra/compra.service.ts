@@ -560,4 +560,24 @@ export class CompraService {
       </html>
     `;
   }
+
+  async findByClienteId(clienteId: string): Promise<CompraDocument[]> {
+    return this.compraModel
+      .find({ cliente: new Types.ObjectId(clienteId) })
+      .populate('cotizacion')
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email telefono')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async findByVendedorId(vendedorId: string): Promise<CompraDocument[]> {
+    return this.compraModel
+      .find({ vendedor: new Types.ObjectId(vendedorId) })
+      .populate('cotizacion')
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email telefono')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
 }
