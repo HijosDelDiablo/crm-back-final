@@ -11,12 +11,10 @@ import {
   IsEnum,
   Length,
   IsMongoId,
-  Allow,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 
-@Allow()
 export class CreateProductDto {
   @ApiProperty({ example: 'Toyota', description: 'Marca del vehículo' })
   @IsString()
@@ -96,7 +94,6 @@ export class CreateProductDto {
   @IsNumber()
   @IsOptional()
   @Min(0)
-  @Allow()
   stock?: number;
 }
 

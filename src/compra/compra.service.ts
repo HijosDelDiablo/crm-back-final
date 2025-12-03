@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 import { Compra, CompraDocument, StatusCompra } from './schemas/compra.schema';
 import { Cotizacion, CotizacionDocument } from '../cotizacion/schemas/cotizacion.schema';
 import { User, UserDocument, ValidatedUser } from '../user/schemas/user.schema';
@@ -42,6 +43,7 @@ export class CompraService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly simulacionService: SimulacionService,
     private readonly oneSignalService: OneSignalService,
+    private readonly configService: ConfigService,
   ) { }
   /**
      * Crea una Compra asociada a una Cotizacion si no existe ya.
