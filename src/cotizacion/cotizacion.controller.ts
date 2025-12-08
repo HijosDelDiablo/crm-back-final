@@ -122,20 +122,28 @@ export class CotizacionController {
   }
 
   @ApiOperation({
-    summary: 'Obtener todas las cotizaciones (Vendedor/Admin)',
-    description: 'Retorna todas las cotizaciones del sistema.'
+    summary: 'Obtener todas las cotizaciones según rol (Cliente/Vendedor/Admin)',
+    description: `
+    Retorna cotizaciones según el rol del usuario:
+
+    **CLIENTE**: Solo ve sus propias cotizaciones
+    **VENDEDOR**: Solo ve cotizaciones asignadas a él
+    **ADMIN**: Ve todas las cotizaciones del sistema
+
+    Opcionalmente filtra por status.
+    `
   })
   @ApiResponse({
     status: 200,
-    description: 'Lista completa de cotizaciones'
+    description: 'Lista de cotizaciones según permisos del usuario'
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   @ApiResponse({ status: 403, description: 'Rol insuficiente' })
   @Get('all')
   @UseGuards(RolesGuard)
-  @Roles(Rol.VENDEDOR, Rol.ADMIN)
-  getCotizaciones() {
-    return this.cotizacionService.getCotizacionesAll();
+  @Roles(Rol.CLIENTE, Rol.VENDEDOR, Rol.ADMIN)
+  getCotizaciones(@GetUser() user: ValidatedUser, @Query('status') status?: string) {
+    return this.cotizacionService.getCotizacionesAll(user, status);
   }
 
   @Post('vendedor-create')
@@ -251,9 +259,21 @@ export class CotizacionController {
     );
   }
 
+  @Patch(':id/assign-vendedor')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Asignar vendedor a cotización (Admin)' })
+  @ApiParam({ name: 'id', description: 'ID de la cotización' })
+  @ApiBody({ schema: { type: 'object', properties: { vendedorId: { type: 'string' } } } })
+  async assignVendedor(
+    @Param('id') id: string,
+    @Body('vendedorId') vendedorId: string,
+  ) {
+    return await this.cotizacionService.assignVendedor(id, vendedorId);
+  }
+
   @ApiOperation({
     summary: 'Asignar vendedor a cotización (Admin)',
-    description: 'Permite a un administrador asignar un vendedor específico.'
+    description: 'Permite a un administrador asignar un vendedor específico a una cotización pendiente, cambiando el estado a En Revision.'
   })
   @ApiParam({ name: 'idPricing', description: 'ID de la cotización' })
   @ApiParam({ name: 'idSeller', description: 'ID del vendedor a asignar' })
@@ -275,7 +295,7 @@ export class CotizacionController {
 
   @ApiOperation({
     summary: 'Obtener cotización por ID (Cliente/Admin/Vendedor)',
-    description: 'Retorna los detalles completos de una cotización específica.'
+    description: 'Retorna los detalles completos de una cotización específica. Si es vendedor asignado o admin, incluye el estado de los documentos del cliente.'
   })
   @ApiParam({ name: 'id', description: 'ID de la cotización' })
   @ApiResponse({

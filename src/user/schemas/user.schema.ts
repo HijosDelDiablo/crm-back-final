@@ -40,6 +40,14 @@ export class User extends Document {
   @Prop({ default: null })
   fotoPerfil?: string;
 
+  @Prop({ type: Object, default: {} })
+  documents?: {
+    ine?: { url: string; uploadedAt: Date };
+    domicilio?: { url: string; uploadedAt: Date };
+    ingresos?: { url: string; uploadedAt: Date };
+    profilePic?: { url: string; uploadedAt: Date };
+  };
+
   @Prop({ default: null })
   direccion?: string;
 
@@ -64,4 +72,10 @@ export interface ValidatedUser {
   twoFactorEnabled?: boolean;
   activo?: boolean;
   fotoPerfil?: string;
+  documents?: {
+    ine?: { url: string; uploadedAt: Date };
+    domicilio?: { url: string; uploadedAt: Date };
+    ingresos?: { url: string; uploadedAt: Date };
+    profilePic?: { url: string; uploadedAt: Date };
+  };
 }

@@ -37,9 +37,32 @@ export class ProductService {
     return newProduct.save();
   }
 
-  async findAllAvailable(): Promise<Product[]> {
+  async findAllAvailable(
+    marca?: string,
+    modelo?: string,
+    ano?: number,
+    minPrecio?: number,
+    maxPrecio?: number,
+  ): Promise<Product[]> {
+    const query: any = { disponible: true, activo: true, stock: { $gt: 0 } };
+
+    if (marca) {
+      query.marca = { $regex: marca, $options: 'i' };
+    }
+    if (modelo) {
+      query.modelo = { $regex: modelo, $options: 'i' };
+    }
+    if (ano) {
+      query.ano = ano;
+    }
+    if (minPrecio !== undefined || maxPrecio !== undefined) {
+      query.precioBase = {};
+      if (minPrecio !== undefined) query.precioBase.$gte = minPrecio;
+      if (maxPrecio !== undefined) query.precioBase.$lte = maxPrecio;
+    }
+
     return this.productModel
-      .find({ disponible: true, activo: true, stock: { $gt: 0 } })
+      .find(query)
       .populate('proveedor', 'nombre contacto')
       .exec();
   }

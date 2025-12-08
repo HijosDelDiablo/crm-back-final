@@ -104,9 +104,9 @@ export class UploadService {
   });
 
   async handleLocal(file: Express.Multer.File) {
-    // 1) Guardado local (ya lo haces con Multer en el controller)
-    const localPath = path.join('uploads', 'pdfs', file.filename);
-    const publicUrl = `/uploads/pdfs/${file.filename}`; // ServeStaticModule sirve /uploads
+    // 1) Guardado local (ya lo hace Multer si está configurado)
+    const localPath = file.path || path.join('uploads', 'pdfs', file.filename);
+    const publicUrl = file.path ? `/uploads/${path.relative('uploads', file.path).replace(/\\/g, '/')}` : `/uploads/pdfs/${file.filename}`;
 
     const result: any = {
       localPath,
@@ -136,6 +136,7 @@ export class UploadService {
     // 4) Intentar subir a UploadThing con UTApi
     try {
       const uploadRes = await this.uploadToUploadThing(file);
+      console.log('🚀 UploadThing raw response:', JSON.stringify(uploadRes, null, 2));
       result.uploadThingResult = {
         success: true,
         data: uploadRes,
@@ -188,7 +189,7 @@ export class UploadService {
 
   private async uploadToUploadThing(file: Express.Multer.File) {
     // Ruta donde Multer guardó el archivo
-    const filePath = path.resolve(process.cwd(), 'uploads', 'pdfs', file.filename);
+    const filePath = file.path || path.resolve(process.cwd(), 'uploads', 'pdfs', file.filename);
 
     // Leemos el archivo como buffer
     const buffer = fs.readFileSync(filePath);
@@ -197,7 +198,9 @@ export class UploadService {
     const utFile = new File([buffer], file.originalname, { type: file.mimetype });
 
     // Subir archivo a UploadThing
+    console.log('📤 Subiendo a UploadThing:', { filename: file.originalname, mimetype: file.mimetype, size: file.size });
     const res = await this.utapi.uploadFiles(utFile);
+    console.log('📥 Respuesta de UploadThing:', JSON.stringify(res, null, 2));
 
     // `res` incluye info como key, url pública, etc.
     return res;

@@ -8,6 +8,7 @@ import { CompraModule } from '../compra/compra.module';
 import { Cotizacion, CotizacionSchema } from '../cotizacion/schemas/cotizacion.schema';
 import { CotizacionModule } from '../cotizacion/cotizacion.module';
 import { ProductModule } from '../product/product.module';
+import { EmailModulePersonal } from '../email-module/email-module.module';
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { ProductModule } from '../product/product.module';
         CompraModule,
         CotizacionModule,
         ProductModule,
+        EmailModulePersonal,
     ],
     providers: [PagoService],
     controllers: [PagoController],

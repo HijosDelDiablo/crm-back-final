@@ -1,4 +1,5 @@
 import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsPhoneNumber } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class RegisterAuthDto {
   @IsNotEmpty({ message: 'El nombre es obligatorio.' })
@@ -15,8 +16,7 @@ export class RegisterAuthDto {
   password: string;
 
   @IsOptional()
-  @IsPhoneNumber('MX', {
-    message: 'Ingresa un número de teléfono válido (incluye código de país, ej. +52...).',
-  })
+  @IsString()
+  @Transform(({ value }) => value === '' ? undefined : value)
   telefono?: string;
 }

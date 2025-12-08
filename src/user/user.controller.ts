@@ -11,6 +11,7 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -19,6 +20,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Rol } from '../auth/enums/rol.enum';
 import type { ValidatedUser } from './schemas/user.schema';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { RegisterAdminDto } from './dto/register-admin.dto';
 import { IsEnum, IsString, IsNotEmpty } from 'class-validator';
 import {
   ApiTags,
@@ -136,6 +138,22 @@ export class UserController {
   getProfile(@GetUser() user: ValidatedUser) {
     return this.userService.getProfile(user._id.toString());
   }
+
+  @Get('documents/status')
+  @ApiOperation({ summary: 'Get document status for current user' })
+  @ApiResponse({ status: 200, description: 'Return document status' })
+  getDocumentStatus(@GetUser() user: ValidatedUser) {
+    return this.userService.getDocumentStatus(user._id.toString());
+  }
+
+  @Get('client/:id')
+  @Roles(Rol.ADMIN, Rol.VENDEDOR)
+  @ApiOperation({ summary: 'Get client details including documents (Admin/Vendedor)' })
+  @ApiParam({ name: 'id', description: 'Client ID' })
+  @ApiResponse({ status: 200, description: 'Return client details' })
+  async getClientDetails(@Param('id') id: string) {
+    return this.userService.findById(id);
+  }
   
   @Patch('profile')
   @ApiOperation({ summary: 'Update own profile' })
@@ -148,7 +166,14 @@ export class UserController {
   }
   
   @Post('profile/upload-photo')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
   @ApiOperation({ summary: 'Upload profile photo' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -166,8 +191,94 @@ export class UserController {
     @GetUser() user: ValidatedUser,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const imageUrl = `/uploads/profiles/${file.filename}`;
-    return this.userService.uploadProfilePhoto(user._id.toString(), imageUrl);
+    return this.userService.uploadProfilePhoto(user._id.toString(), file);
+  }
+
+  @Post('profile/upload-ine')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Upload INE document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadIne(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'ine', file);
+  }
+
+  @Post('profile/upload-domicilio')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Upload domicilio document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadDomicilio(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'domicilio', file);
+  }
+
+  @Post('profile/upload-ingresos')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Upload ingresos document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadIngresos(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'ingresos', file);
   }
   
   @Get('complete-info-seller')
@@ -208,4 +319,137 @@ export class UserController {
     ) {
       return this.userService.activateSeller(sellerId);
     }
+
+  @Post('register-admin')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Register a new admin (Admin only)' })
+  @ApiBody({ type: RegisterAdminDto })
+  @ApiResponse({ status: 201, description: 'Admin registered successfully' })
+  async registerAdmin(@Body(ValidationPipe) dto: RegisterAdminDto) {
+    return this.userService.registerAdmin(dto);
+  }
+
+  @Get('admins')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Get all admins (Admin only)' })
+  @ApiResponse({ status: 200, description: 'List of admins' })
+  async getAdmins() {
+    return this.userService.getAdmins();
+  }
+
+  @Patch('profile/update-photo')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Update profile photo' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async updateProfilePhoto(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadProfilePhoto(user._id.toString(), file);
+  }
+
+  @Patch('profile/update-ine')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Update INE document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async updateIne(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'ine', file);
+  }
+
+  @Patch('profile/update-domicilio')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Update domicilio document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async updateDomicilio(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'domicilio', file);
+  }
+
+  @Patch('profile/update-ingresos')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Update ingresos document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async updateIngresos(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'ingresos', file);
+  }
 }

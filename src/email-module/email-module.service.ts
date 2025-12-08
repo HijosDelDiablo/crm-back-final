@@ -1,21 +1,32 @@
-import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable, Logger } from '@nestjs/common';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class EmailModuleService {
    private readonly logger = new Logger(EmailModuleService.name);
+   private transporter: nodemailer.Transporter;
 
-   constructor(readonly mailerService: MailerService) {}
+   constructor() {
+      this.transporter = nodemailer.createTransport({
+         host: 'smtp.gmail.com', // Hardcoded for Gmail as implied by context
+         port: Number(process.env.PERSONAL_EMAIL_PORT) || 587,
+         secure: Number(process.env.PERSONAL_EMAIL_PORT) === 465,
+         auth: {
+            user: process.env.PERSONAL_EMAIL,
+            pass: process.env.PERSONAL_GOOGLE,
+         },
+      });
+   }
 
    /**
     * Send a simple email (text and/or html).
-    * Returns the result from MailerService.sendMail
     */
    async sendSimpleEmail(
       to: string,
       subject: string,
       text?: string,
       html?: string,
+      attachments?: any[],
    ) {
          // Use PERSONAL_EMAIL as sender when available (this module sends from the personal account)
         // Determine sender (prefer PERSONAL_EMAIL for this module)
@@ -24,13 +35,14 @@ export class EmailModuleService {
         const fromHeader = senderEmail ? `${senderName} <${senderEmail}>` : undefined;
         this.logger.debug(`Using sender: ${fromHeader || '<none>'}`);
       try {
-         const result = await this.mailerService.sendMail({
+         const result = await this.transporter.sendMail({
             to,
            // set explicit from header (overrides global default if permitted by SMTP)
            from: fromHeader,
             subject,
             text,
             html,
+            attachments,
          });
          this.logger.debug(`Email sent to ${to}: ${subject}`);
          return result;

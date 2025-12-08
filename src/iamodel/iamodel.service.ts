@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
-import { Cotizacion, CotizacionDocument } from '../cotizacion/schemas/cotizacion.schema';
+import { Cotizacion, CotizacionDocument, StatusCotizacion } from '../cotizacion/schemas/cotizacion.schema';
 import { Product, ProductDocument } from '../product/schemas/product.schema';
 import { User, UserDocument } from '../user/schemas/user.schema';
 import { Task, TaskDocument } from '../tasks/schemas/task.schema';
@@ -480,8 +480,8 @@ export class IamodelService {
         };
       }
 
-      const pendingQuotes = clientQuotes.filter(q => q.status === 'Pendiente');
-      const approvedQuotes = clientQuotes.filter(q => q.status === 'Aprobada');
+      const pendingQuotes = clientQuotes.filter(q => q.status === StatusCotizacion.PENDIENTE);
+      const approvedQuotes = clientQuotes.filter(q => q.status === StatusCotizacion.APROBADA);
 
       let message = `Tus comunicaciones recientes\n\n`;
 
@@ -593,7 +593,7 @@ export class IamodelService {
 
   private async getPendingQuotesAdmin(): Promise<IaResponse> {
     try {
-      const cotizaciones = await this.cotizacionModel.find({ status: 'Pendiente' })
+      const cotizaciones = await this.cotizacionModel.find({ status: StatusCotizacion.PENDIENTE })
         .populate('cliente', 'nombre email')
         .populate('coche', 'marca modelo precioBase')
         .populate('vendedor', 'nombre')

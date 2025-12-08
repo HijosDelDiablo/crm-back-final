@@ -6,6 +6,7 @@ import { Compra, CompraDocument, StatusCompra } from '../compra/schemas/compra.s
 import { Cotizacion, CotizacionDocument } from '../cotizacion/schemas/cotizacion.schema';
 import { ValidatedUser } from '../user/schemas/user.schema';
 import { ProductService } from '../product/product.service';
+import { EmailModuleService } from '../email-module/email-module.service';
 
 interface RegistrarPagoDto {
     compraId: string;
@@ -21,36 +22,47 @@ export class PagoService {
         @InjectModel(Compra.name) private compraModel: Model<CompraDocument>,
         @InjectModel(Cotizacion.name) private cotizacionModel: Model<CotizacionDocument>,
         private readonly productService: ProductService,
+        private readonly emailService: EmailModuleService,
     ) { }
 
     async registrarPago(
         dto: RegistrarPagoDto,
         usuarioActual: ValidatedUser,
     ): Promise<PagoDocument> {
-        // Validar roles
-        if (usuarioActual.rol !== 'VENDEDOR' && usuarioActual.rol !== 'ADMIN') {
-            throw new ForbiddenException('Solo vendedores o administradores pueden registrar pagos');
-        }
-
         // Validar que el compraId sea un ObjectId válido
         if (!Types.ObjectId.isValid(dto.compraId)) {
             throw new BadRequestException('El ID de la compra no es válido');
         }
 
         // Buscar la Compra
-        const compra = await this.compraModel.findById(dto.compraId).populate('cotizacion');
+        const compra = await this.compraModel.findById(dto.compraId).populate({
+            path: 'cotizacion',
+            populate: { path: 'coche' }
+        }).populate('cliente');
         if (!compra) {
             throw new NotFoundException('Compra no encontrada');
+        }
+
+        // Validar permisos según rol
+        if (usuarioActual.rol === 'CLIENTE') {
+            if (compra.cliente._id.toString() !== usuarioActual._id.toString()) {
+                throw new ForbiddenException('No tienes permiso para registrar pagos en esta compra');
+            }
+            // Permitir solo pago con Tarjeta para clientes
+            if (!dto.metodoPago || dto.metodoPago.toLowerCase() !== 'tarjeta') {
+                throw new BadRequestException('Los clientes solo pueden realizar pagos con Tarjeta');
+            }
+        } else if (usuarioActual.rol === 'VENDEDOR') {
+            if (compra.vendedor && compra.vendedor.toString() !== usuarioActual._id.toString()) {
+                throw new ForbiddenException('Solo el vendedor asignado o un administrador pueden registrar pagos para esta compra');
+            }
+        } else if (usuarioActual.rol !== 'ADMIN') {
+            throw new ForbiddenException('Rol no autorizado para registrar pagos');
         }
 
         // Normalizar valores monetarios para evitar problemas de precisión
         (compra as any).saldoPendiente = parseFloat(((compra as any).saldoPendiente || 0).toFixed(2));
         (compra as any).totalPagado = parseFloat(((compra as any).totalPagado || 0).toFixed(2));
-
-        // Validación adicional para vendedores
-        if (usuarioActual.rol === 'VENDEDOR' && compra.vendedor && compra.vendedor.toString() !== usuarioActual._id.toString()) {
-            throw new ForbiddenException('Solo el vendedor asignado o un administrador pueden registrar pagos para esta compra');
-        }
 
         // Verificar si la compra ya está completada
         if (compra.status === StatusCompra.COMPLETADA) {
@@ -88,7 +100,84 @@ export class PagoService {
         await compra.save();
 
         // Guardar y devolver el Pago
-        return await pago.save();
+        const pagoGuardado = await pago.save();
+
+        // Enviar email de notificación
+        await this.enviarEmailPago(compra, pagoGuardado);
+
+        return pagoGuardado;
+    }
+
+    private async enviarEmailPago(compra: CompraDocument, pago: PagoDocument): Promise<void> {
+        try {
+            const cliente = compra.cliente as any; // Assuming populated
+            const cotizacion = compra.cotizacion as any; // Assuming populated
+            const coche = cotizacion?.coche || {};
+
+            const subject = 'Pago Registrado - SmartAssistant CRM';
+            const text = `
+Pago Registrado Exitosamente
+
+Hola ${cliente.nombre},
+
+Se ha registrado un pago en tu compra.
+
+Detalles del Pago:
+- Monto: $${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+- Método de Pago: ${pago.metodoPago}
+- Fecha: ${pago.fecha.toLocaleDateString('es-MX')}
+${pago.notas ? `- Notas: ${pago.notas}` : ''}
+
+Vehículo: ${coche.marca || 'N/A'} ${coche.modelo || ''} ${coche.ano || ''}
+
+Saldo Total Restante por Pagar: $${(compra as any).saldoPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+(Este monto incluye capital e intereses pendientes)
+
+Gracias por tu pago.
+
+SmartAssistant CRM
+            `;
+
+            await this.emailService.sendSimpleEmail(
+                cliente.email,
+                subject,
+                text
+            );
+        } catch (error) {
+            console.error('Error enviando email de pago:', error);
+            // No throw error to avoid breaking payment registration
+        }
+    }
+
+    private async enviarEmailVentaCompletada(compra: CompraDocument): Promise<void> {
+        try {
+            const cliente = compra.cliente as any;
+            const cotizacion = compra.cotizacion as any;
+            const coche = cotizacion?.coche || {};
+
+            const subject = '¡Felicidades! Tu vehículo es tuyo - SmartAssistant CRM';
+            const text = `
+¡Felicidades ${cliente.nombre}!
+
+Has completado el pago de tu vehículo.
+
+Vehículo: ${coche.marca || 'N/A'} ${coche.modelo || ''} ${coche.ano || ''}
+
+Ya puedes pasar a recoger tu vehículo y la documentación correspondiente.
+
+¡Gracias por tu compra!
+
+SmartAssistant CRM
+            `;
+
+            await this.emailService.sendSimpleEmail(
+                cliente.email,
+                subject,
+                text
+            );
+        } catch (error) {
+            console.error('Error enviando email de venta completada:', error);
+        }
     }
 
     private async actualizarSaldoYStatus(compra: CompraDocument, monto: number): Promise<void> {
@@ -102,8 +191,12 @@ export class PagoService {
             }
             // Decrementar stock del producto
             if (compra.cotizacion && (compra.cotizacion as any).coche) {
-                await this.productService.decrementStock((compra.cotizacion as any).coche.toString(), 1);
+                const coche = (compra.cotizacion as any).coche;
+                const cocheId = coche._id ? coche._id.toString() : coche.toString();
+                await this.productService.decrementStock(cocheId, 1);
             }
+            // Enviar email de venta completada
+            await this.enviarEmailVentaCompletada(compra);
         }
     }
 
@@ -119,9 +212,27 @@ export class PagoService {
             .exec();
     }
 
-    async getPagosByClienteId(clienteId: string): Promise<PagoDocument[]> {
+    async getPagosByClienteId(clienteId: string, filters?: { compraId?: string; fecha?: Date }): Promise<PagoDocument[]> {
+        const query: any = { cliente: clienteId };
+
+        if (filters?.compraId) {
+            query.compra = filters.compraId;
+        }
+
+        if (filters?.fecha) {
+            const startOfDay = new Date(filters.fecha);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(filters.fecha);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            query.fecha = {
+                $gte: startOfDay,
+                $lte: endOfDay
+            };
+        }
+
         return this.pagoModel
-            .find({ cliente: clienteId })
+            .find(query)
             .populate('compra', 'status saldoPendiente createdAt')
             .populate('registradoPor', 'nombre email')
             .sort({ fecha: -1 }) // Orden descendente por fecha (más reciente primero)

@@ -9,13 +9,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Compra, CompraDocument, StatusCompra } from './schemas/compra.schema';
-import { Cotizacion, CotizacionDocument } from '../cotizacion/schemas/cotizacion.schema';
+import { Cotizacion, CotizacionDocument, StatusCotizacion } from '../cotizacion/schemas/cotizacion.schema';
 import { User, UserDocument, ValidatedUser } from '../user/schemas/user.schema';
 import { Product, ProductDocument } from '../product/schemas/product.schema';
 import { CreateCompraDto } from './dto/create-compra.dto';
 import { AprobarCompraDto } from './dto/approval.dto';
 import { SimulacionService } from './services/simulacion.service';
 import { OneSignalService } from '../notifications/onesignal.service';
+import { Rol } from '../auth/enums/rol.enum';
 
 interface ResultadoBanco {
   aprobado: boolean;
@@ -57,15 +58,16 @@ export class CompraService {
       return null;
     }
 
-    // Inicializar saldoPendiente con solo los pagos mensuales (sin enganche)
-    const saldoPendiente = parseFloat((cotizacion.pagoMensual * cotizacion.plazoMeses).toFixed(2));
+    // Inicializar saldoPendiente con el total a pagar (incluyendo enganche)
+    // Esto permite que el enganche sea registrado como un pago más
+    const saldoPendiente = cotizacion.totalPagado;
 
     const nuevaCompra = new this.compraModel({
       cotizacion: cotizacion._id,
       cliente: cotizacion.cliente,
       vendedor: cotizacion.vendedor,
       status: StatusCompra.APROBADA,
-      saldoPendiente: saldoPendiente - (cotizacion.enganche || 0),
+      saldoPendiente: saldoPendiente,
       montoTotalCredito: saldoPendiente, // Campo informativo opcional
     });
     return await nuevaCompra.save();
@@ -100,7 +102,7 @@ export class CompraService {
       throw new NotFoundException('Cotización no encontrada o no pertenece al usuario');
     }
 
-    if (cotizacion.status !== 'Aprobada') {
+    if (cotizacion.status !== StatusCotizacion.APROBADA) {
       throw new BadRequestException('La cotización debe estar aprobada para iniciar el proceso de compra');
     }
 
@@ -632,9 +634,26 @@ export class CompraService {
     return compra;
   }
 
-  async getAllCompras(): Promise<any[]> {
+  async getAllCompras(user: ValidatedUser, status?: string): Promise<any[]> {
+    const filter: any = {};
+    if (status) {
+      // Normalizar el status para manejar variaciones (con/sin tilde)
+      const normalizedStatus = status.toLowerCase().replace('revisión', 'revision').replace('revison', 'revision');
+      filter.status = new RegExp(`^${normalizedStatus}$`, 'i');
+    }
+
+    // Aplicar filtros según el rol del usuario
+    if (user.rol === Rol.CLIENTE) {
+      // Cliente solo ve sus propias compras
+      filter.cliente = user._id;
+    } else if (user.rol === Rol.VENDEDOR) {
+      // Vendedor solo ve compras donde es el vendedor asignado
+      filter.vendedor = user._id;
+    }
+    // Admin ve todas las compras (sin filtro adicional)
+
     const compras = await this.compraModel
-      .find()
+      .find(filter)
       .populate('cliente', 'nombre email telefono')
       .populate('vendedor', 'nombre email')
       .populate({

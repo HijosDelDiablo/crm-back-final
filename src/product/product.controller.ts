@@ -9,6 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  Query,
 } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
 import {
@@ -18,7 +19,8 @@ import {
   ApiBody,
   ApiBearerAuth,
   ApiParam,
-  ApiConsumes
+  ApiConsumes,
+  ApiQuery
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -266,8 +268,19 @@ export class ProductController {
     }
   })
   @Get('tienda')
-  findAllAvailable() {
-    return this.productService.findAllAvailable();
+  @ApiQuery({ name: 'marca', required: false })
+  @ApiQuery({ name: 'modelo', required: false })
+  @ApiQuery({ name: 'ano', required: false, type: Number })
+  @ApiQuery({ name: 'minPrecio', required: false, type: Number })
+  @ApiQuery({ name: 'maxPrecio', required: false, type: Number })
+  findAllAvailable(
+    @Query('marca') marca?: string,
+    @Query('modelo') modelo?: string,
+    @Query('ano') ano?: number,
+    @Query('minPrecio') minPrecio?: number,
+    @Query('maxPrecio') maxPrecio?: number,
+  ) {
+    return this.productService.findAllAvailable(marca, modelo, ano, minPrecio, maxPrecio);
   }
 
   @ApiOperation({
