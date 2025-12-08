@@ -600,12 +600,43 @@ Authorization: Bearer <access_token> (Cliente)
 ```
 
 ### **GET** `/cotizaciones/all`
+**Descripción:** Obtiene todas las cotizaciones. Los administradores ven todas las cotizaciones del sistema, mientras que los vendedores solo ven las cotizaciones que tienen asignadas.
+
 **Headers:**
 ```
 Authorization: Bearer <access_token> (Vendedor/Admin)
 ```
 
-### **GET** `/cotizaciones/pendientes`
+**Response (200):**
+```json
+[
+  {
+    "_id": "507f1f77bcf86cd799439013",
+    "cliente": {
+      "nombre": "Juan Pérez",
+      "email": "juan@email.com",
+      "telefono": "+52551234567"
+    },
+    "coche": {
+      "marca": "Toyota",
+      "modelo": "Corolla",
+      "ano": 2020,
+      "precioBase": 250000
+    },
+    "vendedor": {
+      "nombre": "María García",
+      "email": "maria@email.com"
+    },
+    "enganche": 50000,
+    "plazoMeses": 60,
+    "pagoMensual": 4166.67,
+    "status": "Aprobada",
+    "createdAt": "2024-01-15T10:00:00.000Z"
+  }
+]
+```
+
+---
 **Headers:**
 ```
 Authorization: Bearer <access_token> (Vendedor/Admin)

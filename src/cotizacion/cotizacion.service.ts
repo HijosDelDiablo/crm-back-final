@@ -292,13 +292,29 @@ export class CotizacionService {
   }
 
 
-  async getCotizacionesAll(): Promise<CotizacionDocument[]> {
-    return this.cotizacionModel
-      .find({})
-      .populate('cliente', 'nombre email telefono fotoPerfil')
-      .populate('vendedor', 'nombre email telefono fotoPerfil')
-      .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
-      .exec();
+  async getCotizacionesAll(user: ValidatedUser): Promise<CotizacionDocument[]> {
+    // Si es admin, ver todas las cotizaciones
+    if (user.rol === Rol.ADMIN) {
+      return this.cotizacionModel
+        .find({})
+        .populate('cliente', 'nombre email telefono fotoPerfil')
+        .populate('vendedor', 'nombre email telefono fotoPerfil')
+        .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
+        .exec();
+    }
+
+    // Si es vendedor, ver solo las cotizaciones asignadas a él
+    if (user.rol === Rol.VENDEDOR) {
+      return this.cotizacionModel
+        .find({ vendedor: user._id })
+        .populate('cliente', 'nombre email telefono fotoPerfil')
+        .populate('vendedor', 'nombre email telefono fotoPerfil')
+        .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
+        .exec();
+    }
+
+    // Fallback (no debería llegar aquí por los guards)
+    return [];
   }
 
   async setSellerToPricing(idPricing: string, idSeller: string) {

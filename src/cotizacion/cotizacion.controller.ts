@@ -123,7 +123,7 @@ export class CotizacionController {
 
   @ApiOperation({
     summary: 'Obtener todas las cotizaciones (Vendedor/Admin)',
-    description: 'Retorna todas las cotizaciones del sistema.'
+    description: 'Retorna todas las cotizaciones del sistema para admins, o solo las asignadas para vendedores.'
   })
   @ApiResponse({
     status: 200,
@@ -134,8 +134,8 @@ export class CotizacionController {
   @Get('all')
   @UseGuards(RolesGuard)
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
-  getCotizaciones() {
-    return this.cotizacionService.getCotizacionesAll();
+  getCotizaciones(@GetUser() user: ValidatedUser) {
+    return this.cotizacionService.getCotizacionesAll(user);
   }
 
   @Post('vendedor-create')
