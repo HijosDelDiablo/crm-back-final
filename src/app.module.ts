@@ -27,6 +27,7 @@ import { StatisticsModule } from './statistics/statistics.module';
 import { FavoritesUserModule } from './favorites-user/favorites-user.module';
 import { IamodelModule } from './iamodel/iamodel.module';
 import { SellerReviewModule } from './seller-review/seller-review.module';
+import { EmailModulePersonal } from './email-module/email-module.module';
 
 @Module({
   imports: [
@@ -54,16 +55,17 @@ import { SellerReviewModule } from './seller-review/seller-review.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         transport: {
-          host: configService.get<string>('SMTP_SERVER'),
+          host: configService.get<string>('SMTP_SERVER') || 'smtp.gmail.com',
           port: parseInt(configService.get<string>('SMTP_PORT', '587'), 10),
           secure: false,
+          // prefer PERSONAL_EMAIL credentials for personal sender
           auth: {
-            user: configService.get<string>('EMAIL_FROM'),
-            pass: configService.get<string>('EMAIL_PASSWORD'),
+            user: configService.get<string>('PERSONAL_EMAIL') || configService.get<string>('EMAIL_FROM'),
+            pass: configService.get<string>('PERSONAL_GOOGLE') || configService.get<string>('EMAIL_PASSWORD'),
           },
         },
         defaults: {
-          from: `"SmartAssistant CRM" <${configService.get<string>('EMAIL_FROM')}>`,
+          from: `"SmartAssistant CRM" <${configService.get<string>('PERSONAL_EMAIL') || configService.get<string>('EMAIL_FROM')}>`,
         },
         template: {
           dir: join(process.cwd(), 'src', 'templates'),
@@ -101,6 +103,8 @@ import { SellerReviewModule } from './seller-review/seller-review.module';
     StatisticsModule,
     FavoritesUserModule,
     SellerReviewModule,
+    EmailModulePersonal,
+    
   ],
   controllers: [AppController],
   providers: [AppService],
