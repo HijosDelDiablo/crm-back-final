@@ -16,6 +16,7 @@ import { CreateCompraDto } from './dto/create-compra.dto';
 import { AprobarCompraDto } from './dto/approval.dto';
 import { SimulacionService } from './services/simulacion.service';
 import { OneSignalService } from '../notifications/onesignal.service';
+import { Rol } from '../auth/enums/rol.enum';
 
 interface ResultadoBanco {
   aprobado: boolean;
@@ -633,13 +634,23 @@ export class CompraService {
     return compra;
   }
 
-  async getAllCompras(status?: string): Promise<any[]> {
+  async getAllCompras(user: ValidatedUser, status?: string): Promise<any[]> {
     const filter: any = {};
     if (status) {
       // Normalizar el status para manejar variaciones (con/sin tilde)
       const normalizedStatus = status.toLowerCase().replace('revisión', 'revision').replace('revison', 'revision');
       filter.status = new RegExp(`^${normalizedStatus}$`, 'i');
     }
+
+    // Aplicar filtros según el rol del usuario
+    if (user.rol === Rol.CLIENTE) {
+      // Cliente solo ve sus propias compras
+      filter.cliente = user._id;
+    } else if (user.rol === Rol.VENDEDOR) {
+      // Vendedor solo ve compras donde es el vendedor asignado
+      filter.vendedor = user._id;
+    }
+    // Admin ve todas las compras (sin filtro adicional)
 
     const compras = await this.compraModel
       .find(filter)

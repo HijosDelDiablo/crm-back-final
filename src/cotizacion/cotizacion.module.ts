@@ -5,6 +5,7 @@ import { CompraModule } from '../compra/compra.module';
 import { CotizacionController } from './cotizacion.controller';
 import { Cotizacion, CotizacionSchema } from './schemas/cotizacion.schema';
 import { Product, ProductSchema } from '../product/schemas/product.schema';
+import { Compra, CompraSchema } from '../compra/schemas/compra.schema';
 import { UserModule } from '../user/user.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EmailModulePersonal } from '../email-module/email-module.module';
@@ -14,6 +15,7 @@ import { EmailModulePersonal } from '../email-module/email-module.module';
     MongooseModule.forFeature([
       { name: Cotizacion.name, schema: CotizacionSchema },
       { name: Product.name, schema: ProductSchema },
+      { name: Compra.name, schema: CompraSchema },
     ]),
     UserModule,
     NotificationsModule,

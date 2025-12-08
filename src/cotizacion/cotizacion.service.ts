@@ -13,6 +13,7 @@ import { User, UserDocument } from '../user/schemas/user.schema';
 import { ValidatedUser } from '../user/schemas/user.schema';
 import { UserService } from '../user/user.service';
 import { Cotizacion, CotizacionDocument, StatusCotizacion } from './schemas/cotizacion.schema';
+import { Compra, CompraDocument } from '../compra/schemas/compra.schema';
 import { CompraService } from '../compra/compra.service';
 import { EmailModuleService } from '../email-module/email-module.service';
 import { Rol } from '../auth/enums/rol.enum';
@@ -37,6 +38,7 @@ export class CotizacionService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Cotizacion.name)
     private cotizacionModel: Model<CotizacionDocument>,
+    @InjectModel(Compra.name) private compraModel: Model<CompraDocument>,
     private readonly userService: UserService,
     private readonly compraService: CompraService,
     private readonly emailService: EmailModuleService,
@@ -293,7 +295,7 @@ export class CotizacionService {
   }
 
 
-  async getCotizacionesAll(user: ValidatedUser, status?: string): Promise<CotizacionDocument[]> {
+  async getCotizacionesAll(user: ValidatedUser, status?: string): Promise<any[]> {
     const filter: any = {};
     if (status) {
       // Normalizar el status para manejar variaciones (con/sin tilde)
@@ -303,18 +305,56 @@ export class CotizacionService {
 
     // Si es admin, ver todas las cotizaciones
     if (user.rol === Rol.ADMIN) {
-      return this.cotizacionModel
+      const cotizaciones = await this.cotizacionModel
         .find(filter)
         .populate('cliente', 'nombre email telefono fotoPerfil')
         .populate('vendedor', 'nombre email telefono fotoPerfil')
         .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
         .exec();
+
+      // Agregar información de compra para cada cotización
+      const cotizacionesConCompra = await Promise.all(
+        cotizaciones.map(async (cotizacion) => {
+          const compra = await this.compraModel.findOne({ cotizacion: cotizacion._id }).select('_id status saldoPendiente');
+          return {
+            ...cotizacion.toObject(),
+            compra: compra ? { _id: compra._id, status: compra.status, saldoPendiente: compra.saldoPendiente } : null
+          };
+        })
+      );
+
+      return cotizacionesConCompra;
     }
 
     // Si es vendedor, ver solo las cotizaciones asignadas a él
     if (user.rol === Rol.VENDEDOR) {
+      const vendedorFilter = { ...filter, vendedor: user._id };
       const cotizaciones = await this.cotizacionModel
-        .find(filter)
+        .find(vendedorFilter)
+        .populate('cliente', 'nombre email telefono fotoPerfil')
+        .populate('vendedor', 'nombre email telefono fotoPerfil')
+        .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
+        .exec();
+
+      // Agregar información de compra para cada cotización
+      const cotizacionesConCompra = await Promise.all(
+        cotizaciones.map(async (cotizacion) => {
+          const compra = await this.compraModel.findOne({ cotizacion: cotizacion._id }).select('_id status saldoPendiente');
+          return {
+            ...cotizacion.toObject(),
+            compra: compra ? { _id: compra._id, status: compra.status, saldoPendiente: compra.saldoPendiente } : null
+          };
+        })
+      );
+
+      return cotizacionesConCompra;
+    }
+
+    // Si es cliente, ver solo sus propias cotizaciones
+    if (user.rol === Rol.CLIENTE) {
+      const clienteFilter = { ...filter, cliente: user._id };
+      const cotizaciones = await this.cotizacionModel
+        .find(clienteFilter)
         .populate('cliente', 'nombre email telefono fotoPerfil')
         .populate('vendedor', 'nombre email telefono fotoPerfil')
         .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')

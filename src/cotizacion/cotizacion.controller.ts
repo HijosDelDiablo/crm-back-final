@@ -122,18 +122,26 @@ export class CotizacionController {
   }
 
   @ApiOperation({
-    summary: 'Obtener todas las cotizaciones (Vendedor/Admin)',
-    description: 'Retorna todas las cotizaciones del sistema para admins, o solo las asignadas para vendedores. Opcionalmente filtra por status.'
+    summary: 'Obtener todas las cotizaciones según rol (Cliente/Vendedor/Admin)',
+    description: `
+    Retorna cotizaciones según el rol del usuario:
+
+    **CLIENTE**: Solo ve sus propias cotizaciones
+    **VENDEDOR**: Solo ve cotizaciones asignadas a él
+    **ADMIN**: Ve todas las cotizaciones del sistema
+
+    Opcionalmente filtra por status.
+    `
   })
   @ApiResponse({
     status: 200,
-    description: 'Lista completa de cotizaciones'
+    description: 'Lista de cotizaciones según permisos del usuario'
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   @ApiResponse({ status: 403, description: 'Rol insuficiente' })
   @Get('all')
   @UseGuards(RolesGuard)
-  @Roles(Rol.VENDEDOR, Rol.ADMIN)
+  @Roles(Rol.CLIENTE, Rol.VENDEDOR, Rol.ADMIN)
   getCotizaciones(@GetUser() user: ValidatedUser, @Query('status') status?: string) {
     return this.cotizacionService.getCotizacionesAll(user, status);
   }

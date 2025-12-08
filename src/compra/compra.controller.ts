@@ -463,19 +463,28 @@ export class CompraController {
   })
   @ApiResponse({ status: 404, description: 'Compra no encontrada' })
   @ApiOperation({
-    summary: 'Obtener todas las compras (Admin/Vendedor)',
-    description: 'Retorna todas las compras del sistema. Opcionalmente filtra por status.'
+    summary: 'Obtener todas las compras con filtros (Admin/Vendedor/Cliente)',
+    description: `
+    Retorna una lista de todas las compras según el rol del usuario:
+
+    **ADMIN**: Ve todas las compras del sistema
+    **VENDEDOR**: Solo ve compras donde es el vendedor asignado
+    **CLIENTE**: Solo ve sus propias compras
+
+    **Filtros disponibles:**
+    - status: Filtrar por estado de compra
+    `
   })
   @ApiResponse({
     status: 200,
-    description: 'Lista de todas las compras',
+    description: 'Lista de compras según permisos del usuario',
   })
-  @ApiResponse({ status: 403, description: 'Solo administradores pueden ver todas las compras' })
+  @ApiResponse({ status: 403, description: 'Acceso denegado según rol del usuario' })
   @Get('all')
   @UseGuards(RolesGuard)
-  @Roles(Rol.ADMIN, Rol.VENDEDOR)
-  getAllCompras(@Query('status') status?: string) {
-    return this.compraService.getAllCompras(status);
+  @Roles(Rol.ADMIN, Rol.VENDEDOR, Rol.CLIENTE)
+  getAllCompras(@GetUser() user: ValidatedUser, @Query('status') status?: string) {
+    return this.compraService.getAllCompras(user, status);
   }
 
   @Get(':id')
