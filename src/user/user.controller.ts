@@ -11,6 +11,7 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -148,7 +149,14 @@ export class UserController {
   }
   
   @Post('profile/upload-photo')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
   @ApiOperation({ summary: 'Upload profile photo' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -170,7 +178,14 @@ export class UserController {
   }
 
   @Post('profile/upload-ine')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
   @ApiOperation({ summary: 'Upload INE document' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -192,7 +207,14 @@ export class UserController {
   }
 
   @Post('profile/upload-domicilio')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
   @ApiOperation({ summary: 'Upload domicilio document' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -214,7 +236,14 @@ export class UserController {
   }
 
   @Post('profile/upload-ingresos')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
   @ApiOperation({ summary: 'Upload ingresos document' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({

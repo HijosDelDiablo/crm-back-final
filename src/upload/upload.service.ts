@@ -104,9 +104,9 @@ export class UploadService {
   });
 
   async handleLocal(file: Express.Multer.File) {
-    // 1) Guardado local (ya lo haces con Multer en el controller)
-    const localPath = path.join('uploads', 'pdfs', file.filename);
-    const publicUrl = `/uploads/pdfs/${file.filename}`; // ServeStaticModule sirve /uploads
+    // 1) Guardado local (ya lo hace Multer si está configurado)
+    const localPath = file.path || path.join('uploads', 'pdfs', file.filename);
+    const publicUrl = file.path ? `/uploads/${path.relative('uploads', file.path).replace(/\\/g, '/')}` : `/uploads/pdfs/${file.filename}`;
 
     const result: any = {
       localPath,
@@ -188,7 +188,7 @@ export class UploadService {
 
   private async uploadToUploadThing(file: Express.Multer.File) {
     // Ruta donde Multer guardó el archivo
-    const filePath = path.resolve(process.cwd(), 'uploads', 'pdfs', file.filename);
+    const filePath = file.path || path.resolve(process.cwd(), 'uploads', 'pdfs', file.filename);
 
     // Leemos el archivo como buffer
     const buffer = fs.readFileSync(filePath);
