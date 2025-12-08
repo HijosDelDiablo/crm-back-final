@@ -473,12 +473,14 @@ export class CompraController {
   @ApiResponse({ status: 403, description: 'Solo administradores pueden ver todas las compras' })
   @Get('all')
   @UseGuards(RolesGuard)
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.VENDEDOR)
   getAllCompras() {
     return this.compraService.getAllCompras();
   }
 
   @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN, Rol.VENDEDOR, Rol.CLIENTE)
   getCompraById(@Param('id') compraId: string) {
     return this.compraService.getCompraById(compraId);
   }
