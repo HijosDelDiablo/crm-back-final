@@ -89,7 +89,7 @@ export class UploadController {
       this.logger.warn(`Requested file not found: ${name}`);
       return res.status(HttpStatus.NOT_FOUND).json({ error: 'Not Found' });
     }
-    
+  
 
     // If remoteUrls are present prefer the first remote URL (UploadThing UFS URL)
     let publicUrl: string | undefined = undefined;
