@@ -5,6 +5,7 @@ import { User, UserDocument } from './schemas/user.schema';
 import { Rol } from '../auth/enums/rol.enum';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UploadService } from '../upload/upload.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserService {
@@ -377,6 +378,22 @@ export class UserService {
       throw new NotFoundException(`Vendedor con ID "${sellerId}" no encontrado.`);
     }
     return { message: `Vendedor con ID "${sellerId}" desactivado correctamente.` };
+  }
+
+  async registerAdmin(dto: { nombre: string; email: string; password: string; telefono?: string }): Promise<UserDocument> {
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const newAdmin = new this.userModel({
+      nombre: dto.nombre,
+      email: dto.email,
+      password: hashedPassword,
+      telefono: dto.telefono,
+      rol: Rol.ADMIN,
+    });
+    return newAdmin.save();
+  }
+
+  async getAdmins(): Promise<UserDocument[]> {
+    return this.userModel.find({ rol: Rol.ADMIN }).select('-password').exec();
   }
   async activateSeller(sellerId: string): Promise<{ message: string }> {
     const updatedSeller = await this.userModel

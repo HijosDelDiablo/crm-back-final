@@ -16,6 +16,7 @@ export class EmailModuleService {
       subject: string,
       text?: string,
       html?: string,
+      attachments?: any[],
    ) {
          // Use PERSONAL_EMAIL as sender when available (this module sends from the personal account)
         // Determine sender (prefer PERSONAL_EMAIL for this module)
@@ -31,6 +32,7 @@ export class EmailModuleService {
             subject,
             text,
             html,
+            attachments,
          });
          this.logger.debug(`Email sent to ${to}: ${subject}`);
          return result;

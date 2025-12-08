@@ -20,6 +20,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Rol } from '../auth/enums/rol.enum';
 import type { ValidatedUser } from './schemas/user.schema';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { RegisterAdminDto } from './dto/register-admin.dto';
 import { IsEnum, IsString, IsNotEmpty } from 'class-validator';
 import {
   ApiTags,
@@ -302,4 +303,21 @@ export class UserController {
     ) {
       return this.userService.activateSeller(sellerId);
     }
+
+  @Post('register-admin')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Register a new admin (Admin only)' })
+  @ApiBody({ type: RegisterAdminDto })
+  @ApiResponse({ status: 201, description: 'Admin registered successfully' })
+  async registerAdmin(@Body(ValidationPipe) dto: RegisterAdminDto) {
+    return this.userService.registerAdmin(dto);
+  }
+
+  @Get('admins')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Get all admins (Admin only)' })
+  @ApiResponse({ status: 200, description: 'List of admins' })
+  async getAdmins() {
+    return this.userService.getAdmins();
+  }
 }

@@ -253,7 +253,7 @@ export class CotizacionController {
 
   @ApiOperation({
     summary: 'Asignar vendedor a cotización (Admin)',
-    description: 'Permite a un administrador asignar un vendedor específico.'
+    description: 'Permite a un administrador asignar un vendedor específico a una cotización pendiente, cambiando el estado a En Revision.'
   })
   @ApiParam({ name: 'idPricing', description: 'ID de la cotización' })
   @ApiParam({ name: 'idSeller', description: 'ID del vendedor a asignar' })
@@ -275,7 +275,7 @@ export class CotizacionController {
 
   @ApiOperation({
     summary: 'Obtener cotización por ID (Cliente/Admin/Vendedor)',
-    description: 'Retorna los detalles completos de una cotización específica.'
+    description: 'Retorna los detalles completos de una cotización específica. Si es vendedor asignado, incluye documentos del cliente con estado de vigencia.'
   })
   @ApiParam({ name: 'id', description: 'ID de la cotización' })
   @ApiResponse({

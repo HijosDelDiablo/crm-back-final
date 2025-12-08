@@ -14,6 +14,9 @@ import { UserService } from '../user/user.service';
 import { OneSignalService } from '../notifications/onesignal.service';
 import { Cotizacion, CotizacionDocument } from './schemas/cotizacion.schema';
 import { CompraService } from '../compra/compra.service';
+import { EmailModuleService } from '../email-module/email-module.service';
+
+const pdf = require('pdf-node');
 
 interface CotizacionWithCliente extends Omit<CotizacionDocument, 'cliente'> {
   cliente: UserDocument;
@@ -30,11 +33,13 @@ export class CotizacionService {
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Cotizacion.name)
     private cotizacionModel: Model<CotizacionDocument>,
     private readonly oneSignalService: OneSignalService,
     private readonly userService: UserService,
     private readonly compraService: CompraService,
+    private readonly emailService: EmailModuleService,
   ) { }
 
   async generarCotizacion(
@@ -88,6 +93,9 @@ export class CotizacionService {
         coche,
         cotizacionGuardada,
       );
+
+      // Generar y enviar PDF
+      await this.enviarCotizacionPDF(clienteDoc, coche, cotizacionGuardada, montoAFinanciar, tasaInteresMensual, plazoMeses, pagoMensual);
     }
 
     return cotizacionGuardada;
@@ -217,11 +225,11 @@ export class CotizacionService {
       .exec();
   }
 
-  async getCotizacionById(id: string, user: ValidatedUser): Promise<CotizacionDocument> {
+  async getCotizacionById(id: string, user: ValidatedUser): Promise<any> {
     const cotizacion = await this.cotizacionModel
       .findById(id)
       .populate('cliente', 'nombre email telefono')
-      .populate('coche', 'marca modelo ano precioBase imageUrl condicion transmision kilometraje descripcion')
+      .populate('coche', 'marca modelo ano precioBase imageUrl condicion transmision descripcion')
       .populate('vendedor', 'nombre email telefono')
       .exec();
 
@@ -269,6 +277,7 @@ export class CotizacionService {
     }
 
     cotizacion.vendedor = new Types.ObjectId(idSeller);
+    cotizacion.status = 'En Revision';
 
     return cotizacion.save();
   }
@@ -310,6 +319,45 @@ export class CotizacionService {
     }
 
     return cotizacionActualizada;
+  }
+
+  private calculateDocumentStatus(documents?: any) {
+    if (!documents) return {};
+
+    const now = new Date();
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Aproximadamente 1 mes
+
+    const result: any = {};
+    for (const key in documents) {
+      if (documents[key]) {
+        const uploadedAt = new Date(documents[key].uploadedAt);
+        result[key] = {
+          ...documents[key],
+          status: uploadedAt < oneMonthAgo ? 'pasado' : 'actual',
+        };
+      }
+    }
+    return result;
+  }
+
+  async assignVendedor(
+    id: string,
+    vendedorId: string,
+  ): Promise<CotizacionDocument> {
+    const cotizacion = await this.cotizacionModel.findById(id);
+
+    if (!cotizacion) {
+      throw new NotFoundException('Cotización no encontrada.');
+    }
+
+    if (cotizacion.status !== 'Pendiente') {
+      throw new BadRequestException('Solo se pueden asignar cotizaciones pendientes.');
+    }
+
+    cotizacion.vendedor = new Types.ObjectId(vendedorId);
+    cotizacion.status = 'En Revision';
+
+    return cotizacion.save();
   }
 
   private async enviarCorreoCotizacionOneSignal(
@@ -465,5 +513,87 @@ export class CotizacionService {
     } catch (error) {
       throw new Error('No se pudo obtener top productos.');
     }
+  }
+
+  private async enviarCotizacionPDF(
+    cliente: UserDocument,
+    coche: ProductDocument,
+    cotizacion: CotizacionDocument,
+    montoFinanciado: number,
+    tasaMensual: number,
+    plazo: number,
+    pagoMensual: number,
+  ): Promise<void> {
+    const amortizacionTable = this.generarTablaAmortizacion(montoFinanciado, tasaMensual, plazo, pagoMensual);
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; }
+            h1 { color: #333; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+          </style>
+        </head>
+        <body>
+          <h1>Cotización de Vehículo</h1>
+          <p><strong>Cliente:</strong> ${cliente.nombre}</p>
+          <p><strong>Email:</strong> ${cliente.email}</p>
+          <p><strong>Vehículo:</strong> ${coche.marca} ${coche.modelo} ${coche.ano}</p>
+          <p><strong>Precio:</strong> $${cotizacion.precioCoche}</p>
+          <p><strong>Enganche:</strong> $${cotizacion.enganche}</p>
+          <p><strong>Monto Financiado:</strong> $${montoFinanciado.toFixed(2)}</p>
+          <p><strong>Plazo:</strong> ${plazo} meses</p>
+          <p><strong>Tasa Anual:</strong> ${(cotizacion.tasaInteres * 100).toFixed(2)}%</p>
+          <p><strong>Pago Mensual:</strong> $${pagoMensual.toFixed(2)}</p>
+          <p><strong>Total Pagado:</strong> $${cotizacion.totalPagado.toFixed(2)}</p>
+          <h2>Tabla de Amortización</h2>
+          ${amortizacionTable}
+        </body>
+      </html>
+    `;
+
+    const options = { format: 'A4' };
+    const file = { content: html };
+
+    pdf(file, options).toBuffer((err, buffer) => {
+      if (err) {
+        console.error('Error generando PDF:', err);
+        return;
+      }
+
+      // Enviar email con PDF adjunto
+      this.emailService.sendSimpleEmail(
+        cliente.email,
+        'Cotización Generada - Autobots CRM',
+        'Adjunto encontrarás el PDF con los detalles de tu cotización.',
+        undefined,
+        [{ filename: 'cotizacion.pdf', content: buffer }]
+      );
+    });
+  }
+
+  private generarTablaAmortizacion(monto: number, tasa: number, plazo: number, pago: number): string {
+    let saldo = monto;
+    let table = '<table><tr><th>Mes</th><th>Pago</th><th>Interés</th><th>Capital</th><th>Saldo</th></tr>';
+
+    for (let mes = 1; mes <= plazo; mes++) {
+      const interes = saldo * tasa;
+      const capital = pago - interes;
+      saldo -= capital;
+
+      table += `<tr>
+        <td>${mes}</td>
+        <td>$${pago.toFixed(2)}</td>
+        <td>$${interes.toFixed(2)}</td>
+        <td>$${capital.toFixed(2)}</td>
+        <td>$${saldo.toFixed(2)}</td>
+      </tr>`;
+    }
+
+    table += '</table>';
+    return table;
   }
 }
