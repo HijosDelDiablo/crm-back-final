@@ -205,7 +205,7 @@ Este documento detalla los endpoints optimizados para el flujo de trabajo del **
   ```json
   {
     "monto": 500,
-    "descripcion": "Gasolina visita cliente",
+    "descripcion": "Gasolina visita cliente",→→→
     "categoria": "Viáticos"
   }
   ```

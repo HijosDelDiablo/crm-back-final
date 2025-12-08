@@ -1,5 +1,6 @@
 import { IsMongoId, IsNumber, IsPositive, Min, Max, IsString, IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { StatusCotizacion } from '../schemas/cotizacion.schema';
 
 export class CreateCotizacionDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011', description: 'ID del coche (ObjectId) para el que se solicita cotización' })
@@ -19,11 +20,9 @@ export class CreateCotizacionDto {
 }
 
 export class UpdateCotizacionStatusDto {
-  @ApiProperty({ example: 'Aprobada', description: "Nuevo estado de la cotización ('Aprobada'|'Rechazada')", enum: ['Aprobada', 'Rechazada'] })
-  @IsString()
-  @IsNotEmpty()
-  @IsEnum(['Aprobada', 'Rechazada'])
-  status: 'Aprobada' | 'Rechazada';
+  @ApiProperty({ example: 'Aprobada', description: "Nuevo estado de la cotización", enum: [StatusCotizacion.APROBADA, StatusCotizacion.RECHAZADA] })
+  @IsEnum([StatusCotizacion.APROBADA, StatusCotizacion.RECHAZADA])
+  status: StatusCotizacion.APROBADA | StatusCotizacion.RECHAZADA;
 }
 
 export class UpdateNotasVendedorDto {

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { User } from '../user/schemas/user.schema';
 import { Product } from '../product/schemas/product.schema';
-import { Cotizacion } from '../cotizacion/schemas/cotizacion.schema';
+import { Cotizacion, StatusCotizacion } from '../cotizacion/schemas/cotizacion.schema';
 
 @Injectable()
 export class EmailService {
@@ -41,7 +41,7 @@ export class EmailService {
   }
 
   async enviarCorreoResultadoCotizacion(cliente: User, coche: Product, cotizacion: Cotizacion) {
-    const aprobado = cotizacion.status === 'Aprobada';
+    const aprobado = cotizacion.status === StatusCotizacion.APROBADA;
     const asunto = aprobado
       ? '¡Tu solicitud ha sido aprobada!'
       : 'solicitud rechazada';

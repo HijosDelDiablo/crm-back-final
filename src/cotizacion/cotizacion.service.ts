@@ -12,7 +12,7 @@ import { Product, ProductDocument } from '../product/schemas/product.schema';
 import { User, UserDocument } from '../user/schemas/user.schema';
 import { ValidatedUser } from '../user/schemas/user.schema';
 import { UserService } from '../user/user.service';
-import { Cotizacion, CotizacionDocument } from './schemas/cotizacion.schema';
+import { Cotizacion, CotizacionDocument, StatusCotizacion } from './schemas/cotizacion.schema';
 import { CompraService } from '../compra/compra.service';
 import { EmailModuleService } from '../email-module/email-module.service';
 import { Rol } from '../auth/enums/rol.enum';
@@ -95,7 +95,7 @@ export class CotizacionService {
       pagoMensual: parseFloat(pagoMensual.toFixed(2)),
       montoFinanciado: montoAFinanciar,
       totalPagado: parseFloat(totalPagado.toFixed(2)),
-      status: 'Pendiente',
+      status: StatusCotizacion.PENDIENTE,
     });
 
     const cotizacionGuardada = await nuevaCotizacion.save();
@@ -161,7 +161,7 @@ export class CotizacionService {
       pagoMensual: parseFloat(pagoMensual.toFixed(2)),
       montoFinanciado: montoAFinanciar,
       totalPagado: parseFloat(totalPagado.toFixed(2)),
-      status: 'Pendiente',
+      status: StatusCotizacion.PENDIENTE,
     });
 
     const cotizacionGuardada = await nuevaCotizacion.save();
@@ -207,7 +207,7 @@ export class CotizacionService {
     this.logger.log(`📋 Obteniendo cotizaciones pendientes para vendedor ${user._id}`);
 
     const data: CotizacionDocument[] = await this.cotizacionModel
-      .find({ status: 'Pendiente', vendedor: new Types.ObjectId(user._id) })
+      .find({ status: StatusCotizacion.PENDIENTE, vendedor: new Types.ObjectId(user._id) })
       .populate('cliente', 'nombre email telefono')
       .populate('coche', 'marca modelo ano precioBase')
       .exec();
@@ -217,7 +217,7 @@ export class CotizacionService {
 
   async getCotizacionesAprovadas(): Promise<CotizacionDocument[]> {
     return this.cotizacionModel
-      .find({ status: 'Aprobada' })
+      .find({ status: StatusCotizacion.APROBADA })
       .populate('cliente', 'nombre email telefono')
       .populate('coche', 'marca modelo ano precioBase')
       .exec();
@@ -226,7 +226,7 @@ export class CotizacionService {
   async getCotizacionesAprobadasCliente(clienteId: string): Promise<CotizacionDocument[]> {
     return this.cotizacionModel
       .find({
-        status: 'Aprobada',
+        status: StatusCotizacion.APROBADA,
         cliente: new Types.ObjectId(clienteId)
       })
       .populate('cliente', 'nombre email telefono')
@@ -237,7 +237,9 @@ export class CotizacionService {
   async getMisCotizaciones(user: ValidatedUser, status?: string): Promise<CotizacionDocument[]> {
     const filter: any = { cliente: new Types.ObjectId(user._id) };
     if (status) {
-      filter.status = status;
+      // Normalizar el status para manejar variaciones (con/sin tilde)
+      const normalizedStatus = status.toLowerCase().replace('revisión', 'revision').replace('revison', 'revision');
+      filter.status = new RegExp(`^${normalizedStatus}$`, 'i');
     }
     return this.cotizacionModel
       .find(filter)
@@ -291,11 +293,18 @@ export class CotizacionService {
   }
 
 
-  async getCotizacionesAll(user: ValidatedUser): Promise<CotizacionDocument[]> {
+  async getCotizacionesAll(user: ValidatedUser, status?: string): Promise<CotizacionDocument[]> {
+    const filter: any = {};
+    if (status) {
+      // Normalizar el status para manejar variaciones (con/sin tilde)
+      const normalizedStatus = status.toLowerCase().replace('revisión', 'revision').replace('revison', 'revision');
+      filter.status = new RegExp(`^${normalizedStatus}$`, 'i');
+    }
+
     // Si es admin, ver todas las cotizaciones
     if (user.rol === Rol.ADMIN) {
       return this.cotizacionModel
-        .find({})
+        .find(filter)
         .populate('cliente', 'nombre email telefono fotoPerfil')
         .populate('vendedor', 'nombre email telefono fotoPerfil')
         .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
@@ -304,12 +313,25 @@ export class CotizacionService {
 
     // Si es vendedor, ver solo las cotizaciones asignadas a él
     if (user.rol === Rol.VENDEDOR) {
-      return this.cotizacionModel
-        .find({ vendedor: user._id })
+      const cotizaciones = await this.cotizacionModel
+        .find(filter)
         .populate('cliente', 'nombre email telefono fotoPerfil')
         .populate('vendedor', 'nombre email telefono fotoPerfil')
         .populate('coche', 'imageUrl marca modelo ano precioBase descripcion condicion tipo transmision motor')
         .exec();
+
+      // Agregar información de compra para cada cotización
+      const cotizacionesConCompra = await Promise.all(
+        cotizaciones.map(async (cotizacion) => {
+          const compra = await this.compraModel.findOne({ cotizacion: cotizacion._id }).select('_id status saldoPendiente');
+          return {
+            ...cotizacion.toObject(),
+            compra: compra ? { _id: compra._id, status: compra.status, saldoPendiente: compra.saldoPendiente } : null
+          };
+        })
+      );
+
+      return cotizacionesConCompra;
     }
 
     // Fallback (no debería llegar aquí por los guards)
@@ -327,7 +349,7 @@ export class CotizacionService {
     }
 
     cotizacion.vendedor = new Types.ObjectId(idSeller);
-    cotizacion.status = 'En Revision';
+    cotizacion.status = StatusCotizacion.EN_REVISION;
 
     const result = await cotizacion.save();
     this.logger.log(`✅ Vendedor asignado y status cambiado a 'En Revision'`);
@@ -338,7 +360,7 @@ export class CotizacionService {
   async updateCotizacionStatus(
     id: string,
     vendedor: ValidatedUser,
-    status: 'Aprobada' | 'Rechazada',
+    status: StatusCotizacion.APROBADA | StatusCotizacion.RECHAZADA,
   ): Promise<CotizacionDocument> {
     this.logger.log(`🔄 Actualizando status de cotización ${id} a '${status}' por vendedor ${vendedor._id}`);
 
@@ -361,7 +383,7 @@ export class CotizacionService {
     this.logger.log(`💾 Status actualizado exitosamente`);
 
     // Si la cotización fue aprobada, crear Compra si no existe
-    if (status === 'Aprobada') {
+    if (status === StatusCotizacion.APROBADA) {
       this.logger.log(`🛒 Creando compra desde cotización aprobada`);
       await this.compraService.createFromCotizacion(cotizacionActualizada);
       this.logger.log(`✅ Compra creada exitosamente`);
@@ -410,12 +432,12 @@ export class CotizacionService {
       throw new NotFoundException('Cotización no encontrada.');
     }
 
-    if (cotizacion.status !== 'Pendiente') {
+    if (cotizacion.status !== StatusCotizacion.PENDIENTE) {
       throw new BadRequestException('Solo se pueden asignar cotizaciones pendientes.');
     }
 
     cotizacion.vendedor = new Types.ObjectId(vendedorId);
-    cotizacion.status = 'En Revision';
+    cotizacion.status = StatusCotizacion.EN_REVISION;
 
     return cotizacion.save();
   }
@@ -482,7 +504,7 @@ export class CotizacionService {
     cotizacion: CotizacionDocument
   ): Promise<void> {
     try {
-      const aprobado = cotizacion.status === 'Aprobada';
+      const aprobado = cotizacion.status === StatusCotizacion.APROBADA;
       const subject = aprobado
         ? '¡Tu solicitud ha sido aprobada! - SmartAssistant CRM'
         : 'Resultado de tu solicitud - SmartAssistant CRM';
@@ -553,7 +575,7 @@ export class CotizacionService {
   async getTopProductos() {
     try {
       const topProductos = await this.cotizacionModel.aggregate([
-        { $match: { status: 'Aprobada' } },
+        { $match: { status: StatusCotizacion.APROBADA } },
         { $group: { _id: '$coche', count: { $sum: 1 } } },
 
         { $sort: { count: -1 } },

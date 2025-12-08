@@ -9,7 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Compra, CompraDocument, StatusCompra } from './schemas/compra.schema';
-import { Cotizacion, CotizacionDocument } from '../cotizacion/schemas/cotizacion.schema';
+import { Cotizacion, CotizacionDocument, StatusCotizacion } from '../cotizacion/schemas/cotizacion.schema';
 import { User, UserDocument, ValidatedUser } from '../user/schemas/user.schema';
 import { Product, ProductDocument } from '../product/schemas/product.schema';
 import { CreateCompraDto } from './dto/create-compra.dto';
@@ -101,7 +101,7 @@ export class CompraService {
       throw new NotFoundException('Cotización no encontrada o no pertenece al usuario');
     }
 
-    if (cotizacion.status !== 'Aprobada') {
+    if (cotizacion.status !== StatusCotizacion.APROBADA) {
       throw new BadRequestException('La cotización debe estar aprobada para iniciar el proceso de compra');
     }
 
@@ -633,9 +633,16 @@ export class CompraService {
     return compra;
   }
 
-  async getAllCompras(): Promise<any[]> {
+  async getAllCompras(status?: string): Promise<any[]> {
+    const filter: any = {};
+    if (status) {
+      // Normalizar el status para manejar variaciones (con/sin tilde)
+      const normalizedStatus = status.toLowerCase().replace('revisión', 'revision').replace('revison', 'revision');
+      filter.status = new RegExp(`^${normalizedStatus}$`, 'i');
+    }
+
     const compras = await this.compraModel
-      .find()
+      .find(filter)
       .populate('cliente', 'nombre email telefono')
       .populate('vendedor', 'nombre email')
       .populate({

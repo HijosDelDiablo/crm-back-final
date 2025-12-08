@@ -191,7 +191,9 @@ SmartAssistant CRM
             }
             // Decrementar stock del producto
             if (compra.cotizacion && (compra.cotizacion as any).coche) {
-                await this.productService.decrementStock((compra.cotizacion as any).coche.toString(), 1);
+                const coche = (compra.cotizacion as any).coche;
+                const cocheId = coche._id ? coche._id.toString() : coche.toString();
+                await this.productService.decrementStock(cocheId, 1);
             }
             // Enviar email de venta completada
             await this.enviarEmailVentaCompletada(compra);

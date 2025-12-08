@@ -5,6 +5,14 @@ import { Product } from '../../product/schemas/product.schema';
 
 export type CotizacionDocument = Cotizacion & Document;
 
+export enum StatusCotizacion {
+  PENDIENTE = "Pendiente",
+  EN_REVISION = 'En Revision',
+  APROBADA = 'Aprobada',
+  RECHAZADA = 'Rechazada',
+  COMPLETADA = 'Completada'
+}
+
 @Schema({ timestamps: true })
 export class Cotizacion {
   @Prop({ type: Types.ObjectId, ref: User.name, required: true })
@@ -12,7 +20,7 @@ export class Cotizacion {
 
   @Prop({ type: Types.ObjectId, ref: Product.name, required: true })
   coche: Types.ObjectId;
-  
+
   @Prop({ type: Types.ObjectId, ref: User.name, required: false })
   vendedor?: Types.ObjectId;
 
@@ -21,7 +29,7 @@ export class Cotizacion {
 
   @Prop({ required: true })
   enganche: number;
-  
+
   @Prop({ required: true })
   plazoMeses: number;
 
@@ -37,8 +45,12 @@ export class Cotizacion {
   @Prop({ required: true })
   totalPagado: number;
 
-  @Prop({ type: String, required: true, default: 'Pendiente' })
-  status: string;
+  @Prop({
+    type: String,
+    enum: StatusCotizacion,
+    default: StatusCotizacion.PENDIENTE
+  })
+  status: StatusCotizacion;
 
   @Prop({ type: String, default: '' })
   notasVendedor?: string;

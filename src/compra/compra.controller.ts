@@ -463,8 +463,8 @@ export class CompraController {
   })
   @ApiResponse({ status: 404, description: 'Compra no encontrada' })
   @ApiOperation({
-    summary: 'Obtener todas las compras (Admin)',
-    description: 'Retorna todas las compras del sistema para administración.'
+    summary: 'Obtener todas las compras (Admin/Vendedor)',
+    description: 'Retorna todas las compras del sistema. Opcionalmente filtra por status.'
   })
   @ApiResponse({
     status: 200,
@@ -474,8 +474,8 @@ export class CompraController {
   @Get('all')
   @UseGuards(RolesGuard)
   @Roles(Rol.ADMIN, Rol.VENDEDOR)
-  getAllCompras() {
-    return this.compraService.getAllCompras();
+  getAllCompras(@Query('status') status?: string) {
+    return this.compraService.getAllCompras(status);
   }
 
   @Get(':id')
@@ -525,7 +525,7 @@ export class CompraController {
   @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
   @Get('por-cliente/:clienteId')
   @UseGuards(RolesGuard)
-  @Roles(Rol.ADMIN, Rol.CLIENTE)
+  @Roles(Rol.ADMIN, Rol.CLIENTE, Rol.VENDEDOR)
   async getComprasPorCliente(
     @Param('clienteId') clienteId: string,
     @Req() req: any,
@@ -534,6 +534,7 @@ export class CompraController {
     if (usuarioActual.rol === Rol.CLIENTE && usuarioActual._id.toString() !== clienteId) {
       throw new ForbiddenException('No tienes permiso para ver las compras de este cliente');
     }
+    // Vendedores pueden ver compras de cualquier cliente (para gestión)
     return this.compraService.findByClienteId(clienteId);
   }
 
