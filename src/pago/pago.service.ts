@@ -29,11 +29,6 @@ export class PagoService {
         dto: RegistrarPagoDto,
         usuarioActual: ValidatedUser,
     ): Promise<PagoDocument> {
-        // Validar roles
-        if (usuarioActual.rol !== 'VENDEDOR' && usuarioActual.rol !== 'ADMIN') {
-            throw new ForbiddenException('Solo vendedores o administradores pueden registrar pagos');
-        }
-
         // Validar que el compraId sea un ObjectId válido
         if (!Types.ObjectId.isValid(dto.compraId)) {
             throw new BadRequestException('El ID de la compra no es válido');
@@ -48,14 +43,26 @@ export class PagoService {
             throw new NotFoundException('Compra no encontrada');
         }
 
+        // Validar permisos según rol
+        if (usuarioActual.rol === 'CLIENTE') {
+            if (compra.cliente._id.toString() !== usuarioActual._id.toString()) {
+                throw new ForbiddenException('No tienes permiso para registrar pagos en esta compra');
+            }
+            // Permitir solo pago con Tarjeta para clientes
+            if (!dto.metodoPago || dto.metodoPago.toLowerCase() !== 'tarjeta') {
+                throw new BadRequestException('Los clientes solo pueden realizar pagos con Tarjeta');
+            }
+        } else if (usuarioActual.rol === 'VENDEDOR') {
+            if (compra.vendedor && compra.vendedor.toString() !== usuarioActual._id.toString()) {
+                throw new ForbiddenException('Solo el vendedor asignado o un administrador pueden registrar pagos para esta compra');
+            }
+        } else if (usuarioActual.rol !== 'ADMIN') {
+            throw new ForbiddenException('Rol no autorizado para registrar pagos');
+        }
+
         // Normalizar valores monetarios para evitar problemas de precisión
         (compra as any).saldoPendiente = parseFloat(((compra as any).saldoPendiente || 0).toFixed(2));
         (compra as any).totalPagado = parseFloat(((compra as any).totalPagado || 0).toFixed(2));
-
-        // Validación adicional para vendedores
-        if (usuarioActual.rol === 'VENDEDOR' && compra.vendedor && compra.vendedor.toString() !== usuarioActual._id.toString()) {
-            throw new ForbiddenException('Solo el vendedor asignado o un administrador pueden registrar pagos para esta compra');
-        }
 
         // Verificar si la compra ya está completada
         if (compra.status === StatusCompra.COMPLETADA) {

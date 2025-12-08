@@ -99,7 +99,7 @@ export class PagoController {
     @ApiResponse({ status: 400, description: 'Datos inválidos o compra no válida' })
     @ApiResponse({ status: 403, description: 'No autorizado para registrar pagos' })
     @ApiResponse({ status: 404, description: 'Compra no encontrada' })
-    @Roles(Rol.VENDEDOR, Rol.ADMIN)
+    @Roles(Rol.VENDEDOR, Rol.ADMIN, Rol.CLIENTE)
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Post()
     async registrarPago(
