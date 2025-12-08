@@ -4,11 +4,13 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { Rol } from '../auth/enums/rol.enum';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UploadService } from '../upload/upload.service';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly uploadService: UploadService,
   ) { }
 
   async findByEmailWithPassword(email: string): Promise<UserDocument | null> {
@@ -117,12 +119,20 @@ export class UserService {
     return updatedUser;
   }
 
-  async uploadProfilePhoto(userId: string, imageUrl: string): Promise<UserDocument> {
+  async uploadProfilePhoto(userId: string, file: Express.Multer.File): Promise<UserDocument> {
+    const uploadResult = await this.uploadService.handleLocal(file);
+    const imageUrl = uploadResult.publicUrl || uploadResult.uploadThingResult?.data?.[0]?.url || `/uploads/profiles/${file.filename}`;
+
     const updatedUser = await this.userModel
       .findByIdAndUpdate(
         userId,
-        { fotoPerfil: imageUrl },
-        { new: true }
+        {
+          fotoPerfil: imageUrl,
+          $set: {
+            'documents.profilePic': { url: imageUrl, uploadedAt: new Date() }
+          }
+        },
+        { new: true, upsert: true }
       )
       .select('-password');
 
@@ -133,7 +143,31 @@ export class UserService {
     return updatedUser;
   }
 
-  async getProfile(userId: string): Promise<UserDocument> {
+  async uploadDocument(userId: string, documentType: 'ine' | 'domicilio' | 'ingresos', file: Express.Multer.File): Promise<UserDocument> {
+    const uploadResult = await this.uploadService.handleLocal(file);
+    const fileUrl = uploadResult.publicUrl || uploadResult.uploadThingResult?.data?.[0]?.url || `/uploads/documents/${file.filename}`;
+
+    const updatePath = `documents.${documentType}`;
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          $set: {
+            [updatePath]: { url: fileUrl, uploadedAt: new Date() }
+          }
+        },
+        { new: true, upsert: true }
+      )
+      .select('-password');
+
+    if (!updatedUser) {
+      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
+    }
+
+    return updatedUser;
+  }
+
+  async getProfile(userId: string): Promise<any> {
     const user = await this.userModel
       .findById(userId)
       .select('-password -twoFactorSecret -twoFactorTempSecret');
@@ -142,7 +176,32 @@ export class UserService {
       throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
     }
 
-    return user;
+    // Calcular estado de documentos
+    const documentsWithStatus = this.calculateDocumentStatus(user.documents);
+
+    return {
+      ...user.toObject(),
+      documents: documentsWithStatus,
+    };
+  }
+
+  private calculateDocumentStatus(documents?: any) {
+    if (!documents) return {};
+
+    const now = new Date();
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Aproximadamente 1 mes
+
+    const result: any = {};
+    for (const key in documents) {
+      if (documents[key]) {
+        const uploadedAt = new Date(documents[key].uploadedAt);
+        result[key] = {
+          ...documents[key],
+          status: uploadedAt < oneMonthAgo ? 'pasado' : 'actual',
+        };
+      }
+    }
+    return result;
   }
 
   async getVendedoresOrdenadosPorClientes(): Promise<UserDocument[]> {

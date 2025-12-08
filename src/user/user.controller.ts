@@ -166,8 +166,73 @@ export class UserController {
     @GetUser() user: ValidatedUser,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const imageUrl = `/uploads/profiles/${file.filename}`;
-    return this.userService.uploadProfilePhoto(user._id.toString(), imageUrl);
+    return this.userService.uploadProfilePhoto(user._id.toString(), file);
+  }
+
+  @Post('profile/upload-ine')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload INE document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadIne(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'ine', file);
+  }
+
+  @Post('profile/upload-domicilio')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload domicilio document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadDomicilio(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'domicilio', file);
+  }
+
+  @Post('profile/upload-ingresos')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload ingresos document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadIngresos(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'ingresos', file);
   }
   
   @Get('complete-info-seller')
