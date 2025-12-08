@@ -36,7 +36,7 @@ async function bootstrap() {
       'smartassistant://login-success',
       'http://localhost:3000/auth/google/callback',
     ],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: [
       'Origin',
       'X-Requested-With',
@@ -48,8 +48,7 @@ async function bootstrap() {
       'Access-Control-Request-Headers',
     ],
     credentials: true,
-    preflightContinue: false,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 200,
   });
 
   const config = new DocumentBuilder()
