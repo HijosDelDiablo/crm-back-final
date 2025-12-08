@@ -16,8 +16,7 @@ import { Cotizacion, CotizacionDocument } from './schemas/cotizacion.schema';
 import { CompraService } from '../compra/compra.service';
 import { EmailModuleService } from '../email-module/email-module.service';
 import { Rol } from '../auth/enums/rol.enum';
-
-const pdf = require('pdf-node');
+import * as puppeteer from 'puppeteer';
 
 interface CotizacionWithCliente extends Omit<CotizacionDocument, 'cliente'> {
   cliente: UserDocument;
@@ -592,72 +591,166 @@ export class CotizacionService {
     plazo: number,
     pagoMensual: number,
   ): Promise<void> {
-    const amortizacionTable = this.generarTablaAmortizacion(montoFinanciado, tasaMensual, plazo, pagoMensual);
+    const amortizacionTable = this.generarTablaAmortizacion(
+      montoFinanciado,
+      tasaMensual,
+      plazo,
+      pagoMensual,
+    );
 
     const html = `
       <html>
         <head>
+          <meta charset="UTF-8" />
           <style>
-            body { font-family: Arial, sans-serif; }
-            h1 { color: #333; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
+            body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+            h1, h2, h3 { margin: 0 0 8px 0; }
+            h1 { font-size: 24px; }
+            h2 { font-size: 20px; margin-top: 24px; }
+            p { margin: 4px 0; }
+            .section { margin-bottom: 16px; }
+            .card {
+              background: #f9fafb;
+              border-radius: 8px;
+              padding: 12px 16px;
+              border: 1px solid #e5e7eb;
+              margin-top: 8px;
+            }
+            .summary-grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 4px 16px;
+              font-size: 14px;
+            }
+            .summary-item { display: flex; flex-direction: column; }
+            .summary-item span.label { font-weight: 600; color: #374151; }
+            .summary-item span.value { font-weight: 500; color: #111827; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
+            th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: right; }
+            th { background-color: #f3f4f6; text-align: center; }
+            .footer {
+              margin-top: 24px;
+              padding-top: 12px;
+              border-top: 1px solid #e5e7eb;
+              font-size: 10px;
+              color: #6b7280;
+            }
           </style>
         </head>
         <body>
-          <h1>Cotización de Vehículo</h1>
-          <p><strong>Cliente:</strong> ${cliente.nombre}</p>
-          <p><strong>Email:</strong> ${cliente.email}</p>
-          <p><strong>Vehículo:</strong> ${coche.marca} ${coche.modelo} ${coche.ano}</p>
-          <p><strong>Precio:</strong> $${cotizacion.precioCoche}</p>
-          <p><strong>Enganche:</strong> $${cotizacion.enganche}</p>
-          <p><strong>Monto Financiado:</strong> $${montoFinanciado.toFixed(2)}</p>
-          <p><strong>Plazo:</strong> ${plazo} meses</p>
-          <p><strong>Tasa Anual:</strong> ${(cotizacion.tasaInteres * 100).toFixed(2)}%</p>
-          <p><strong>Pago Mensual:</strong> $${pagoMensual.toFixed(2)}</p>
-          <p><strong>Total Pagado:</strong> $${cotizacion.totalPagado.toFixed(2)}</p>
-          <h2>Tabla de Amortización</h2>
-          ${amortizacionTable}
+          <h1>Cotización de Crédito Automotriz</h1>
+
+          <div class="section">
+            <h2>Datos del Cliente</h2>
+            <div class="card">
+              <p><strong>Nombre:</strong> ${cliente.nombre}</p>
+              <p><strong>Email:</strong> ${cliente.email}</p>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Datos del Vehículo</h2>
+            <div class="card">
+              <p><strong>Vehículo:</strong> ${coche.marca} ${coche.modelo} ${coche.ano}</p>
+              <p><strong>Precio de Contado:</strong> $${cotizacion.precioCoche.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p><strong>Enganche:</strong> $${cotizacion.enganche.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Resumen del Financiamiento</h2>
+            <div class="card">
+              <div class="summary-grid">
+                <div class="summary-item">
+                  <span class="label">Monto Financiado:</span>
+                  <span class="value">$${montoFinanciado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Plazo:</span>
+                  <span class="value">${plazo} meses</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Tasa de Interés Anual:</span>
+                  <span class="value">${(cotizacion.tasaInteres * 100).toFixed(2)}%</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Pago Mensual Estimado:</span>
+                  <span class="value">$${pagoMensual.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Total a Pagar (incluye enganche):</span>
+                  <span class="value">$${cotizacion.totalPagado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Calendario de Pagos</h2>
+            <p>A continuación encontrarás el detalle completo de cada uno de tus pagos mensuales:</p>
+            ${amortizacionTable}
+          </div>
+
+          <div class="footer">
+            <p>Esta cotización es válida por 30 días a partir de la fecha de emisión.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM - Todos los derechos reservados.</p>
+          </div>
         </body>
       </html>
     `;
 
-    const options = { format: 'A4' };
-    const file = { content: html };
-
-    pdf(file, options).toBuffer((err, buffer) => {
-      if (err) {
-        console.error('Error generando PDF:', err);
-        return;
-      }
+    try {
+      const browser = await puppeteer.launch({
+        headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const buffer = await page.pdf({ format: 'A4' });
+      await browser.close();
 
       // Enviar email con PDF adjunto
       this.emailService.sendSimpleEmail(
         cliente.email,
-        'Cotización Generada - Autobots CRM',
+        'Cotización Generada - SmartAssistant CRM',
         'Adjunto encontrarás el PDF con los detalles de tu cotización.',
         undefined,
         [{ filename: 'cotizacion.pdf', content: buffer }]
       );
-    });
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+    }
   }
 
-  private generarTablaAmortizacion(monto: number, tasa: number, plazo: number, pago: number): string {
+  private generarTablaAmortizacion(
+    monto: number,
+    tasa: number,
+    plazo: number,
+    pago: number,
+  ): string {
     let saldo = monto;
     let table = '<table><tr><th>Mes</th><th>Pago</th><th>Interés</th><th>Capital</th><th>Saldo</th></tr>';
 
     for (let mes = 1; mes <= plazo; mes++) {
-      const interes = saldo * tasa;
-      const capital = pago - interes;
-      saldo -= capital;
+      const interes = parseFloat((saldo * tasa).toFixed(2));
+      let capital = parseFloat((pago - interes).toFixed(2));
+
+      // Ajuste en el último mes para evitar saldo residual por redondeos
+      if (mes === plazo) {
+        capital = parseFloat(saldo.toFixed(2));
+      }
+
+      const pagoReal = parseFloat((capital + interes).toFixed(2));
+      saldo = parseFloat((saldo - capital).toFixed(2));
+      if (saldo < 0) saldo = 0;
 
       table += `<tr>
-        <td>${mes}</td>
-        <td>$${pago.toFixed(2)}</td>
-        <td>$${interes.toFixed(2)}</td>
-        <td>$${capital.toFixed(2)}</td>
-        <td>$${saldo.toFixed(2)}</td>
+        <td style="text-align:center;">${mes}</td>
+        <td>$${pagoReal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td>$${interes.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td>$${capital.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td>$${saldo.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       </tr>`;
     }
 
@@ -673,6 +766,7 @@ export class CotizacionService {
     // Calcular monto financiado
     const montoFinanciado = cotizacion.precioCoche - cotizacion.enganche;
     const tasaMensual = cotizacion.tasaInteres / 12;
+
     const amortizacionTable = this.generarTablaAmortizacion(
       montoFinanciado,
       tasaMensual,
@@ -683,18 +777,20 @@ export class CotizacionService {
     const html = `
       <html>
         <head>
+          <meta charset="UTF-8" />
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            h1 { color: #10b981; text-align: center; }
-            h2 { color: #333; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
-            .info-section { background: #f9fafb; padding: 15px; margin: 20px 0; border-radius: 8px; }
-            .info-item { margin: 8px 0; }
-            .highlight { background: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-            th { background-color: #10b981; color: white; }
+            body { font-family: Arial, sans-serif; margin: 20px; color: #111827; }
+            h1 { color: #10b981; text-align: center; margin-bottom: 16px; }
+            h2 { color: #111827; border-bottom: 2px solid #10b981; padding-bottom: 8px; margin-top: 24px; }
+            p { margin: 4px 0; }
+            .info-section { background: #f9fafb; padding: 15px; margin: 16px 0; border-radius: 8px; border: 1px solid #e5e7eb; }
+            .info-item { margin: 6px 0; }
+            .highlight { background: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #bfdbfe; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+            th { background-color: #10b981; color: white; text-align: center; }
             tr:nth-child(even) { background-color: #f9fafb; }
-            .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-align: center; }
+            .footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 10px; text-align: center; }
           </style>
         </head>
         <body>
@@ -710,17 +806,17 @@ export class CotizacionService {
           <div class="info-section">
             <h2>Detalles del Vehículo</h2>
             <div class="info-item"><strong>Vehículo:</strong> ${coche.marca} ${coche.modelo} ${coche.ano}</div>
-            <div class="info-item"><strong>Precio Total:</strong> $${cotizacion.precioCoche.toLocaleString()}</div>
-            <div class="info-item"><strong>Enganche:</strong> $${cotizacion.enganche.toLocaleString()}</div>
+            <div class="info-item"><strong>Precio Total:</strong> $${cotizacion.precioCoche.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div class="info-item"><strong>Enganche:</strong> $${cotizacion.enganche.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </div>
 
           <div class="highlight">
             <h2>📋 Resumen de tu Financiamiento</h2>
-            <div class="info-item"><strong>Monto Financiado:</strong> $${montoFinanciado.toLocaleString()}</div>
+            <div class="info-item"><strong>Monto Financiado:</strong> $${montoFinanciado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <div class="info-item"><strong>Plazo:</strong> ${cotizacion.plazoMeses} meses</div>
             <div class="info-item"><strong>Tasa de Interés Anual:</strong> ${(cotizacion.tasaInteres * 100).toFixed(2)}%</div>
-            <div class="info-item"><strong>Pago Mensual:</strong> $${cotizacion.pagoMensual.toFixed(2)}</div>
-            <div class="info-item"><strong>Total a Pagar:</strong> $${cotizacion.totalPagado.toFixed(2)}</div>
+            <div class="info-item"><strong>Pago Mensual:</strong> $${cotizacion.pagoMensual.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div class="info-item"><strong>Total a Pagar (incluye enganche):</strong> $${cotizacion.totalPagado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </div>
 
           <h2>📅 Calendario de Pagos</h2>
@@ -728,7 +824,7 @@ export class CotizacionService {
           ${amortizacionTable}
 
           <div class="footer">
-            <p><strong>Importante:</strong> Los pagos deben realizarse puntualmente el día 1 de cada mes.</p>
+            <p><strong>Importante:</strong> Los pagos deben realizarse puntualmente el día 1 de cada mes, salvo acuerdo distinto con tu asesor.</p>
             <p>Este documento es oficial y confirma la aprobación de tu financiamiento.</p>
             <p>© ${new Date().getFullYear()} SmartAssistant CRM - Todos los derechos reservados.</p>
           </div>
@@ -736,69 +832,80 @@ export class CotizacionService {
       </html>
     `;
 
-    const options = { format: 'A4', orientation: 'portrait' };
-    const file = { content: html };
+    const htmlBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>SmartAssistant CRM</h1>
+            <p>Solicitud Aprobada</p>
+          </div>
+          <div class="content">
+            <h2>Hola ${cliente.nombre},</h2>
+            <p>Nos complace informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #10b981;">APROBADA</b>.</p>
+            <p>En el PDF adjunto encontrarás el calendario completo de pagos que deberás realizar.</p>
+            <p>Un asesor se pondrá en contacto contigo para continuar con el proceso de entrega del vehículo.</p>
+            <br/>
+            <p>Gracias por confiar en nosotros.</p>
+            <p><i>Atentamente,<br/>El equipo de Ventas</i></p>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
 
-    return new Promise((resolve, reject) => {
-      pdf(file, options).toBuffer((err, buffer) => {
-        if (err) {
-          console.error('Error generando PDF de pagos:', err);
-          reject(err);
-          return;
-        }
-
-        // Enviar email con PDF adjunto
-        const subject = '¡Tu solicitud ha sido aprobada! - SmartAssistant CRM';
-        const htmlBody = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-              .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-              .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>SmartAssistant CRM</h1>
-                <p>Solicitud Aprobada</p>
-              </div>
-              <div class="content">
-                <h2>Hola ${cliente.nombre},</h2>
-                <p>Nos complace informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #10b981;">APROBADA</b>.</p>
-                <p>En el PDF adjunto encontrarás el calendario completo de pagos que deberás realizar.</p>
-                <p>Un asesor se pondrá en contacto contigo para continuar con el proceso de entrega del vehículo.</p>
-                <br/>
-                <p>Gracias por confiar en nosotros.</p>
-                <p><i>Atentamente,<br/>El equipo de Ventas</i></p>
-              </div>
-              <div class="footer">
-                <p>Este es un email automático, por favor no respondas a este mensaje.</p>
-                <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `;
-
-        this.emailService.sendSimpleEmail(
-          cliente.email,
-          subject,
-          'Adjunto encontrarás el PDF con el calendario completo de pagos para tu financiamiento aprobado.',
-          htmlBody,
-          [{ filename: 'calendario-pagos-aprobado.pdf', content: buffer }]
-        ).then(() => {
-          console.log(`PDF de pagos enviado exitosamente a ${cliente.email}`);
-          resolve();
-        }).catch((error) => {
-          console.error('Error enviando email con PDF:', error);
-          reject(error);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const browser = await puppeteer.launch({
+          headless: true,
+          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
         });
-      });
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: 'networkidle0' });
+        const buffer = await page.pdf({
+          format: 'A4',
+          margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
+        });
+        await browser.close();
+
+        const subject = '¡Tu solicitud ha sido aprobada! - SmartAssistant CRM';
+
+        this.emailService
+          .sendSimpleEmail(
+            cliente.email,
+            subject,
+            'Adjunto encontrarás el PDF con el calendario completo de pagos para tu financiamiento aprobado.',
+            htmlBody,
+            [{ filename: 'calendario-pagos-aprobado.pdf', content: buffer }],
+          )
+          .then(() => {
+            console.log(`PDF de pagos enviado exitosamente a ${cliente.email}`);
+            resolve();
+          })
+          .catch((error) => {
+            console.error('Error enviando email con PDF:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error generando PDF con Puppeteer:', error);
+        reject(error);
+      }
     });
   }
 }

@@ -6,6 +6,7 @@ import { Compra, CompraDocument, StatusCompra } from '../compra/schemas/compra.s
 import { Cotizacion, CotizacionDocument } from '../cotizacion/schemas/cotizacion.schema';
 import { ValidatedUser } from '../user/schemas/user.schema';
 import { ProductService } from '../product/product.service';
+import { EmailModuleService } from '../email-module/email-module.service';
 
 interface RegistrarPagoDto {
     compraId: string;
@@ -21,6 +22,7 @@ export class PagoService {
         @InjectModel(Compra.name) private compraModel: Model<CompraDocument>,
         @InjectModel(Cotizacion.name) private cotizacionModel: Model<CotizacionDocument>,
         private readonly productService: ProductService,
+        private readonly emailService: EmailModuleService,
     ) { }
 
     async registrarPago(
@@ -38,7 +40,7 @@ export class PagoService {
         }
 
         // Buscar la Compra
-        const compra = await this.compraModel.findById(dto.compraId).populate('cotizacion');
+        const compra = await this.compraModel.findById(dto.compraId).populate('cotizacion').populate('cliente');
         if (!compra) {
             throw new NotFoundException('Compra no encontrada');
         }
@@ -88,7 +90,51 @@ export class PagoService {
         await compra.save();
 
         // Guardar y devolver el Pago
-        return await pago.save();
+        const pagoGuardado = await pago.save();
+
+        // Enviar email de notificación
+        await this.enviarEmailPago(compra, pagoGuardado);
+
+        return pagoGuardado;
+    }
+
+    private async enviarEmailPago(compra: CompraDocument, pago: PagoDocument): Promise<void> {
+        try {
+            const cliente = compra.cliente as any; // Assuming populated
+            const cotizacion = compra.cotizacion as any; // Assuming populated
+            const coche = cotizacion?.coche || {};
+
+            const subject = 'Pago Registrado - SmartAssistant CRM';
+            const body = `
+                <html>
+                    <body>
+                        <h2>Pago Registrado Exitosamente</h2>
+                        <p>Hola ${cliente.nombre},</p>
+                        <p>Se ha registrado un pago en tu compra.</p>
+                        <p><strong>Detalles del Pago:</strong></p>
+                        <ul>
+                            <li><strong>Monto:</strong> $${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
+                            <li><strong>Método de Pago:</strong> ${pago.metodoPago}</li>
+                            <li><strong>Fecha:</strong> ${pago.fechaPago.toLocaleDateString('es-MX')}</li>
+                            ${pago.notas ? `<li><strong>Notas:</strong> ${pago.notas}</li>` : ''}
+                        </ul>
+                        <p><strong>Vehículo:</strong> ${coche.marca || 'N/A'} ${coche.modelo || ''} ${coche.ano || ''}</p>
+                        <p><strong>Saldo Pendiente Actual:</strong> $${(compra as any).saldoPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p>Gracias por tu pago.</p>
+                        <p>SmartAssistant CRM</p>
+                    </body>
+                </html>
+            `;
+
+            await this.emailService.sendSimpleEmail(
+                cliente.email,
+                subject,
+                body
+            );
+        } catch (error) {
+            console.error('Error enviando email de pago:', error);
+            // No throw error to avoid breaking payment registration
+        }
     }
 
     private async actualizarSaldoYStatus(compra: CompraDocument, monto: number): Promise<void> {
