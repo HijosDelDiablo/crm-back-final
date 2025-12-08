@@ -40,7 +40,10 @@ export class PagoService {
         }
 
         // Buscar la Compra
-        const compra = await this.compraModel.findById(dto.compraId).populate('cotizacion').populate('cliente');
+        const compra = await this.compraModel.findById(dto.compraId).populate({
+            path: 'cotizacion',
+            populate: { path: 'coche' }
+        }).populate('cliente');
         if (!compra) {
             throw new NotFoundException('Compra no encontrada');
         }
@@ -105,31 +108,32 @@ export class PagoService {
             const coche = cotizacion?.coche || {};
 
             const subject = 'Pago Registrado - SmartAssistant CRM';
-            const body = `
-                <html>
-                    <body>
-                        <h2>Pago Registrado Exitosamente</h2>
-                        <p>Hola ${cliente.nombre},</p>
-                        <p>Se ha registrado un pago en tu compra.</p>
-                        <p><strong>Detalles del Pago:</strong></p>
-                        <ul>
-                            <li><strong>Monto:</strong> $${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
-                            <li><strong>Método de Pago:</strong> ${pago.metodoPago}</li>
-                            <li><strong>Fecha:</strong> ${pago.fechaPago.toLocaleDateString('es-MX')}</li>
-                            ${pago.notas ? `<li><strong>Notas:</strong> ${pago.notas}</li>` : ''}
-                        </ul>
-                        <p><strong>Vehículo:</strong> ${coche.marca || 'N/A'} ${coche.modelo || ''} ${coche.ano || ''}</p>
-                        <p><strong>Saldo Pendiente Actual:</strong> $${(compra as any).saldoPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        <p>Gracias por tu pago.</p>
-                        <p>SmartAssistant CRM</p>
-                    </body>
-                </html>
+            const text = `
+Pago Registrado Exitosamente
+
+Hola ${cliente.nombre},
+
+Se ha registrado un pago en tu compra.
+
+Detalles del Pago:
+- Monto: $${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+- Método de Pago: ${pago.metodoPago}
+- Fecha: ${pago.fecha.toLocaleDateString('es-MX')}
+${pago.notas ? `- Notas: ${pago.notas}` : ''}
+
+Vehículo: ${coche.marca || 'N/A'} ${coche.modelo || ''} ${coche.ano || ''}
+
+Saldo Pendiente Actual: $${(compra as any).saldoPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+Gracias por tu pago.
+
+SmartAssistant CRM
             `;
 
             await this.emailService.sendSimpleEmail(
                 cliente.email,
                 subject,
-                body
+                text
             );
         } catch (error) {
             console.error('Error enviando email de pago:', error);
