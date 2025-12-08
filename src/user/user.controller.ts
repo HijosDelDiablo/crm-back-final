@@ -320,4 +320,120 @@ export class UserController {
   async getAdmins() {
     return this.userService.getAdmins();
   }
+
+  @Patch('profile/update-photo')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Update profile photo' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async updateProfilePhoto(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadProfilePhoto(user._id.toString(), file);
+  }
+
+  @Patch('profile/update-ine')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Update INE document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async updateIne(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'ine', file);
+  }
+
+  @Patch('profile/update-domicilio')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Update domicilio document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async updateDomicilio(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'domicilio', file);
+  }
+
+  @Patch('profile/update-ingresos')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+      }
+    })
+  }))
+  @ApiOperation({ summary: 'Update ingresos document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async updateIngresos(
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadDocument(user._id.toString(), 'ingresos', file);
+  }
 }

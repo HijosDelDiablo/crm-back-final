@@ -318,6 +318,54 @@ Content-Type: multipart/form-data
 file: <pdf_file>
 ```
 
+### **PATCH** `/user/profile/update-photo`
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+**Body (FormData):**
+```
+file: <image_file>
+```
+
+### **PATCH** `/user/profile/update-ine`
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+**Body (FormData):**
+```
+file: <pdf_file>
+```
+
+### **PATCH** `/user/profile/update-domicilio`
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+**Body (FormData):**
+```
+file: <pdf_file>
+```
+
+### **PATCH** `/user/profile/update-ingresos`
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+**Body (FormData):**
+```
+file: <pdf_file>
+```
+
 ### **GET** `/user/complete-info-seller`
 **Headers:**
 ```
