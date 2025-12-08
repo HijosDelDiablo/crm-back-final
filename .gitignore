@@ -6,6 +6,7 @@
 backup.sh
 backup/
 docker-compose-backup.yml
+.env*
 # Logs
 logs
 *.log
