@@ -491,7 +491,7 @@ export class CompraController {
   @UseGuards(RolesGuard)
   @Roles(Rol.ADMIN, Rol.VENDEDOR, Rol.CLIENTE)
   getCompraById(@Param('id') compraId: string) {
-    return this.compraService.getCompraById(compraId);
+    return this.compraService.getCompraByIdWithPagos(compraId);
   }
 
   @ApiOperation({
@@ -544,7 +544,7 @@ export class CompraController {
       throw new ForbiddenException('No tienes permiso para ver las compras de este cliente');
     }
     // Vendedores pueden ver compras de cualquier cliente (para gestión)
-    return this.compraService.findByClienteId(clienteId);
+    return this.compraService.findByClienteIdWithPagos(clienteId);
   }
 
   @ApiOperation({

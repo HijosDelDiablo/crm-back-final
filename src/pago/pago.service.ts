@@ -204,12 +204,18 @@ SmartAssistant CRM
         if (!Types.ObjectId.isValid(compraId)) {
             throw new BadRequestException('El ID de la compra no es válido');
         }
-        return this.pagoModel
-            .find({ compra: compraId })
+        
+        console.log(`🔍 Buscando pagos para compraId: ${compraId}`);
+        
+        const pagos = await this.pagoModel
+            .find({ compra: new Types.ObjectId(compraId) })
             .populate('cliente', 'nombre email')
             .populate('registradoPor', 'nombre email')
             .sort({ fecha: 1 }) // Orden ascendente por fecha
             .exec();
+            
+        console.log(`✅ Pagos encontrados: ${pagos.length}`);
+        return pagos;
     }
 
     async getPagosByClienteId(clienteId: string, filters?: { compraId?: string; fecha?: Date }): Promise<PagoDocument[]> {

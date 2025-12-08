@@ -55,7 +55,18 @@ Authorization: Bearer {token}
     "totalPagado": 0,
     "montoTotalCredito": 1036134.71,
     "createdAt": "2025-12-08T16:46:36.375Z",
-    "updatedAt": "2025-12-08T16:46:36.375Z"
+    "updatedAt": "2025-12-08T16:46:36.375Z",
+    "historialPagos": [
+      {
+        "_id": "6936fd00e7ef73b4ad790f7c",
+        "compra": "6936fd00e7ef73b4ad790f7b",
+        "monto": 50000,
+        "tipoPago": "Abono",
+        "fechaPago": "2025-12-08T16:46:36.375Z",
+        "saldoPendiente": 986134.71,
+        "createdAt": "2025-12-08T16:46:36.375Z"
+      }
+    ]
   }
 ]
 ```
@@ -140,6 +151,18 @@ const response = await fetch(`/api/compra/por-cliente/${clienteId}`, {
 
 const comprasCliente = await response.json();
 ```
+
+---
+
+## 💡 Notas Importantes
+
+1. **Historial de Pagos Incluido**: Todos los endpoints que devuelven compras ahora incluyen automáticamente el `historialPagos` con todos los pagos realizados en cada compra.
+
+2. **Campo `historialPagos`**: Es un array que contiene todos los pagos de la compra, ordenados por fecha de creación.
+
+3. **Filtrado Automático por Rol**: El backend filtra automáticamente las compras según el rol del usuario autenticado.
+
+4. **Información Completa**: Cada compra incluye información detallada del cliente, vendedor, cotización y vehículo asociado.
 
 ### Obtener todas las compras (Cliente)
 ```javascript

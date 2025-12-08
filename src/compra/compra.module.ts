@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CompraService } from './compra.service';
 import { CompraController } from './compra.controller';
@@ -11,6 +11,7 @@ import { EmailModule } from '../email/email.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProductModule } from '../product/product.module';
 import { UserModule } from '../user/user.module';
+import { PagoModule } from '../pago/pago.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { UserModule } from '../user/user.module';
     NotificationsModule,
     ProductModule,
     UserModule,
+    forwardRef(() => PagoModule),
   ],
   controllers: [CompraController],
   providers: [CompraService, SimulacionService],

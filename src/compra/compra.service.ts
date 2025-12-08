@@ -4,6 +4,8 @@ import {
   BadRequestException,
   Logger,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -17,6 +19,7 @@ import { AprobarCompraDto } from './dto/approval.dto';
 import { SimulacionService } from './services/simulacion.service';
 import { OneSignalService } from '../notifications/onesignal.service';
 import { Rol } from '../auth/enums/rol.enum';
+import { PagoService } from '../pago/pago.service';
 
 interface ResultadoBanco {
   aprobado: boolean;
@@ -45,6 +48,8 @@ export class CompraService {
     private readonly simulacionService: SimulacionService,
     private readonly oneSignalService: OneSignalService,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => PagoService))
+    private readonly pagoService: PagoService,
   ) { }
   /**
      * Crea una Compra asociada a una Cotizacion si no existe ya.
@@ -297,6 +302,26 @@ export class CompraService {
 
     if (!compra) throw new NotFoundException('Compra no encontrada');
     return compra;
+  }
+
+  async getCompraByIdWithPagos(compraId: string): Promise<any> {
+    const compra = await this.compraModel
+      .findById(compraId)
+      .populate('cotizacion')
+      .populate('cliente')
+      .populate('vendedor')
+      .populate('analistaCredito')
+      .exec();
+
+    if (!compra) throw new NotFoundException('Compra no encontrada');
+
+    // Obtener historial de pagos
+    const pagos = await this.pagoService.getPagosByCompraId(compraId);
+
+    return {
+      ...compra.toObject(),
+      historialPagos: pagos,
+    };
   }
 
   private async notificarNuevaSolicitud(compra: CompraDocument): Promise<void> {
@@ -577,6 +602,27 @@ export class CompraService {
       .exec();
   }
 
+  async findByClienteIdWithPagos(clienteId: string): Promise<any[]> {
+    const compras = await this.compraModel
+      .find({ cliente: new Types.ObjectId(clienteId) })
+      .populate('cotizacion')
+      .populate('cliente', 'nombre email telefono')
+      .populate('vendedor', 'nombre email telefono')
+      .sort({ createdAt: -1 })
+      .exec();
+
+    // Agregar historial de pagos a cada compra
+    const comprasConPagos = await Promise.all(compras.map(async (compra) => {
+      const pagos = await this.pagoService.getPagosByCompraId(compra._id.toString());
+      return {
+        ...compra.toObject(),
+        historialPagos: pagos,
+      };
+    }));
+
+    return comprasConPagos;
+  }
+
   async findByVendedorId(vendedorId: string): Promise<CompraDocument[]> {
     return this.compraModel
       .find({ vendedor: new Types.ObjectId(vendedorId) })
@@ -671,17 +717,23 @@ export class CompraService {
     });
 
     // Transform to match frontend expectations
-    const transformedCompras = compras.map(compra => ({
-      _id: compra._id,
-      cliente: compra.cliente,
-      vendedor: compra.vendedor,
-      estado: compra.status, // Map status to estado
-      coche: (compra.cotizacion as any)?.coche || null, // Extract coche from cotizacion
-      saldoPendiente: compra.saldoPendiente,
-      fechaCreacion: compra.fechaAprobacion, // Map createdAt to fechaCreacion
-      cotizacion: compra.cotizacion,
-      totalPagado: compra.totalPagado,
-      createdAt: compra.fechaAprobacion,
+    const transformedCompras = await Promise.all(compras.map(async (compra) => {
+      // Obtener historial de pagos para esta compra
+      const pagos = await this.pagoService.getPagosByCompraId(compra._id.toString());
+
+      return {
+        _id: compra._id,
+        cliente: compra.cliente,
+        vendedor: compra.vendedor,
+        estado: compra.status, // Map status to estado
+        coche: (compra.cotizacion as any)?.coche || null, // Extract coche from cotizacion
+        saldoPendiente: compra.saldoPendiente,
+        fechaCreacion: compra.fechaAprobacion, // Map createdAt to fechaCreacion
+        cotizacion: compra.cotizacion,
+        totalPagado: compra.totalPagado,
+        createdAt: compra.fechaAprobacion,
+        historialPagos: pagos, // Agregar historial de pagos
+      };
     }));
 
     return transformedCompras;
