@@ -210,9 +210,27 @@ SmartAssistant CRM
             .exec();
     }
 
-    async getPagosByClienteId(clienteId: string): Promise<PagoDocument[]> {
+    async getPagosByClienteId(clienteId: string, filters?: { compraId?: string; fecha?: Date }): Promise<PagoDocument[]> {
+        const query: any = { cliente: clienteId };
+
+        if (filters?.compraId) {
+            query.compra = filters.compraId;
+        }
+
+        if (filters?.fecha) {
+            const startOfDay = new Date(filters.fecha);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(filters.fecha);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            query.fecha = {
+                $gte: startOfDay,
+                $lte: endOfDay
+            };
+        }
+
         return this.pagoModel
-            .find({ cliente: clienteId })
+            .find(query)
             .populate('compra', 'status saldoPendiente createdAt')
             .populate('registradoPor', 'nombre email')
             .sort({ fecha: -1 }) // Orden descendente por fecha (más reciente primero)

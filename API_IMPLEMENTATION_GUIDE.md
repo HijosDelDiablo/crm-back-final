@@ -380,7 +380,7 @@ Estas APIs son consumidas por el panel de administración.
 
 #### Ver detalle de compra
 - **GET** `/compra/:id`
-- **Response:** Objeto compra completo.
+- **Response:** Objeto compra completo (incluye historial de pagos en el campo `pagos`).
 
 #### Evaluar/Aprobar
 - **PATCH** `/compra/:id/evaluar`
