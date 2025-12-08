@@ -4,11 +4,14 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { Rol } from '../auth/enums/rol.enum';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UploadService } from '../upload/upload.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly uploadService: UploadService,
   ) { }
 
   async findByEmailWithPassword(email: string): Promise<UserDocument | null> {
@@ -117,12 +120,56 @@ export class UserService {
     return updatedUser;
   }
 
-  async uploadProfilePhoto(userId: string, imageUrl: string): Promise<UserDocument> {
+  async uploadProfilePhoto(userId: string, file: Express.Multer.File): Promise<UserDocument> {
+    const uploadResult = await this.uploadService.handleLocal(file);
+
+    console.log('🔍 UploadResult completo:', JSON.stringify(uploadResult, null, 2));
+
+    // Priorizar URL de UploadThing sobre URL local
+    let imageUrl = uploadResult.publicUrl; // fallback a local
+
+    if (uploadResult.uploadThingResult?.success && uploadResult.uploadThingResult?.data) {
+      // La respuesta de UploadThing viene envuelta en { data: {...}, error: null }
+      const utResponse = uploadResult.uploadThingResult.data;
+      console.log('📤 UploadThing response structure:', JSON.stringify(utResponse, null, 2));
+
+      // La data real está en utResponse.data
+      if (utResponse.data) {
+        const utData = utResponse.data;
+        console.log('📤 UploadThing data structure:', JSON.stringify(utData, null, 2));
+
+        // Usar ufsUrl que es la URL recomendada por UploadThing
+        if (utData.ufsUrl) {
+          imageUrl = utData.ufsUrl;
+          console.log('✅ Usando utData.ufsUrl:', imageUrl);
+        } else if (utData.url) {
+          imageUrl = utData.url;
+          console.log('✅ Usando utData.url:', imageUrl);
+        } else if (utData.appUrl) {
+          imageUrl = utData.appUrl;
+          console.log('✅ Usando utData.appUrl:', imageUrl);
+        } else {
+          console.log('❌ No se encontró URL válida en UploadThing data');
+        }
+      } else {
+        console.log('❌ No hay data en la respuesta de UploadThing');
+      }
+    } else {
+      console.log('⚠️ No hay datos de UploadThing o falló la subida');
+    }
+
+    console.log('🎯 Final imageUrl:', imageUrl);
+
     const updatedUser = await this.userModel
       .findByIdAndUpdate(
         userId,
-        { fotoPerfil: imageUrl },
-        { new: true }
+        {
+          fotoPerfil: imageUrl,
+          $set: {
+            'documents.profilePic': { url: imageUrl, uploadedAt: new Date() }
+          }
+        },
+        { new: true, upsert: true }
       )
       .select('-password');
 
@@ -133,7 +180,67 @@ export class UserService {
     return updatedUser;
   }
 
-  async getProfile(userId: string): Promise<UserDocument> {
+  async uploadDocument(userId: string, documentType: 'ine' | 'domicilio' | 'ingresos', file: Express.Multer.File): Promise<UserDocument> {
+    const uploadResult = await this.uploadService.handleLocal(file);
+
+    console.log(`🔍 UploadResult para ${documentType}:`, JSON.stringify(uploadResult, null, 2));
+
+    // Priorizar URL de UploadThing sobre URL local
+    let fileUrl = uploadResult.publicUrl; // fallback a local
+
+    if (uploadResult.uploadThingResult?.success && uploadResult.uploadThingResult?.data) {
+      // La respuesta de UploadThing viene envuelta en { data: {...}, error: null }
+      const utResponse = uploadResult.uploadThingResult.data;
+      console.log(`📤 UploadThing response structure para ${documentType}:`, JSON.stringify(utResponse, null, 2));
+
+      // La data real está en utResponse.data
+      if (utResponse.data) {
+        const utData = utResponse.data;
+        console.log(`📤 UploadThing data structure para ${documentType}:`, JSON.stringify(utData, null, 2));
+
+        // Usar ufsUrl que es la URL recomendada por UploadThing
+        if (utData.ufsUrl) {
+          fileUrl = utData.ufsUrl;
+          console.log(`✅ Usando utData.ufsUrl para ${documentType}:`, fileUrl);
+        } else if (utData.url) {
+          fileUrl = utData.url;
+          console.log(`✅ Usando utData.url para ${documentType}:`, fileUrl);
+        } else if (utData.appUrl) {
+          fileUrl = utData.appUrl;
+          console.log(`✅ Usando utData.appUrl para ${documentType}:`, fileUrl);
+        } else {
+          console.log(`❌ No se encontró URL válida en UploadThing data para ${documentType}`);
+        }
+      } else {
+        console.log(`❌ No hay data en la respuesta de UploadThing para ${documentType}`);
+      }
+    } else {
+      console.log(`⚠️ No hay datos de UploadThing o falló la subida para ${documentType}`);
+    }
+
+    console.log(`🎯 Final fileUrl para ${documentType}:`, fileUrl);
+
+    const updatePath = `documents.${documentType}`;
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          $set: {
+            [updatePath]: { url: fileUrl, uploadedAt: new Date() }
+          }
+        },
+        { new: true, upsert: true }
+      )
+      .select('-password');
+
+    if (!updatedUser) {
+      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
+    }
+
+    return updatedUser;
+  }
+
+  async getProfile(userId: string): Promise<any> {
     const user = await this.userModel
       .findById(userId)
       .select('-password -twoFactorSecret -twoFactorTempSecret');
@@ -142,7 +249,32 @@ export class UserService {
       throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
     }
 
-    return user;
+    // Calcular estado de documentos
+    const documentsWithStatus = this.calculateDocumentStatus(user.documents);
+
+    return {
+      ...user.toObject(),
+      documents: documentsWithStatus,
+    };
+  }
+
+  private calculateDocumentStatus(documents?: any) {
+    if (!documents) return {};
+
+    const now = new Date();
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Aproximadamente 1 mes
+
+    const result: any = {};
+    for (const key in documents) {
+      if (documents[key]) {
+        const uploadedAt = new Date(documents[key].uploadedAt);
+        result[key] = {
+          ...documents[key],
+          status: uploadedAt < oneMonthAgo ? 'pasado' : 'actual',
+        };
+      }
+    }
+    return result;
   }
 
   async getVendedoresOrdenadosPorClientes(): Promise<UserDocument[]> {
@@ -319,6 +451,7 @@ export class UserService {
     }
     return { message: `Vendedor con ID "${sellerId}" desactivado correctamente.` };
   }
+
   async activateSeller(sellerId: string): Promise<{ message: string }> {
     const updatedSeller = await this.userModel
       .findByIdAndUpdate(
@@ -332,4 +465,53 @@ export class UserService {
     }
     return { message: `Vendedor con ID "${sellerId}" activado correctamente.` };
   }
+
+  async registerAdmin(dto: { nombre: string; email: string; password: string; telefono?: string }): Promise<UserDocument> {
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const newAdmin = new this.userModel({
+      nombre: dto.nombre,
+      email: dto.email,
+      password: hashedPassword,
+      telefono: dto.telefono,
+      rol: Rol.ADMIN,
+    });
+    return newAdmin.save();
+  }
+
+  async getAdmins(): Promise<UserDocument[]> {
+    return this.userModel.find({ rol: Rol.ADMIN }).select('-password').exec();
+  }
+  async getDocumentStatus(userId: string): Promise<any> {
+    const user = await this.userModel
+      .findById(userId)
+      .select('documents');
+
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
+    }
+
+    const documentsWithStatus = this.calculateDocumentStatus(user.documents);
+
+    return {
+      ine: {
+        uploaded: !!(user.documents?.ine?.url),
+        status: documentsWithStatus.ine?.status || null,
+        uploadedAt: user.documents?.ine?.uploadedAt || null,
+        url: user.documents?.ine?.url || null
+      },
+      ingresos: {
+        uploaded: !!(user.documents?.ingresos?.url),
+        status: documentsWithStatus.ingresos?.status || null,
+        uploadedAt: user.documents?.ingresos?.uploadedAt || null,
+        url: user.documents?.ingresos?.url || null
+      },
+      domicilio: {
+        uploaded: !!(user.documents?.domicilio?.url),
+        status: documentsWithStatus.domicilio?.status || null,
+        uploadedAt: user.documents?.domicilio?.uploadedAt || null,
+        url: user.documents?.domicilio?.url || null
+      }
+    };
+  }
 }
+  

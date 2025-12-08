@@ -41,12 +41,17 @@ export class AuthService {
 
     const hashedPassword = await hash(dto.password, 10);
 
-    const newUser = await this.userService.create({
+    const userData: any = {
       nombre: dto.nombre,
       email: dto.email,
       password: hashedPassword,
-      telefono: dto.telefono,
-    });
+    };
+
+    if (dto.telefono) {
+      userData.telefono = dto.telefono;
+    }
+
+    const newUser = await this.userService.create(userData);
 
     const { password, ...user } = newUser.toObject();
     return user;
@@ -60,13 +65,18 @@ export class AuthService {
 
     const hashedPassword = await hash(dto.password, 10);
 
-    const newUser = await this.userService.create({
+    const userData: any = {
       nombre: dto.nombre,
       email: dto.email,
       password: hashedPassword,
-      telefono: dto.telefono,
       rol: Rol.VENDEDOR,
-    });
+    };
+
+    if (dto.telefono) {
+      userData.telefono = dto.telefono;
+    }
+
+    const newUser = await this.userService.create(userData);
 
     const { password, ...user } = newUser.toObject();
     return user;

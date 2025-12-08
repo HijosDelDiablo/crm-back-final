@@ -57,15 +57,16 @@ export class CompraService {
       return null;
     }
 
-    // Inicializar saldoPendiente con solo los pagos mensuales (sin enganche)
-    const saldoPendiente = parseFloat((cotizacion.pagoMensual * cotizacion.plazoMeses).toFixed(2));
+    // Inicializar saldoPendiente con el total a pagar (incluyendo enganche)
+    // Esto permite que el enganche sea registrado como un pago más
+    const saldoPendiente = cotizacion.totalPagado;
 
     const nuevaCompra = new this.compraModel({
       cotizacion: cotizacion._id,
       cliente: cotizacion.cliente,
       vendedor: cotizacion.vendedor,
       status: StatusCompra.APROBADA,
-      saldoPendiente: saldoPendiente - (cotizacion.enganche || 0),
+      saldoPendiente: saldoPendiente,
       montoTotalCredito: saldoPendiente, // Campo informativo opcional
     });
     return await nuevaCompra.save();

@@ -18,9 +18,6 @@ export class Product {
   @Prop({ required: true })
   precioBase: number;
 
-  @Prop({ required: true, default: 0 })
-  kilometraje: number;
-
   @Prop({
     required: true,
     unique: true,

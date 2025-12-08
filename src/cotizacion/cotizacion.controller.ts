@@ -123,7 +123,7 @@ export class CotizacionController {
 
   @ApiOperation({
     summary: 'Obtener todas las cotizaciones (Vendedor/Admin)',
-    description: 'Retorna todas las cotizaciones del sistema.'
+    description: 'Retorna todas las cotizaciones del sistema para admins, o solo las asignadas para vendedores.'
   })
   @ApiResponse({
     status: 200,
@@ -134,8 +134,8 @@ export class CotizacionController {
   @Get('all')
   @UseGuards(RolesGuard)
   @Roles(Rol.VENDEDOR, Rol.ADMIN)
-  getCotizaciones() {
-    return this.cotizacionService.getCotizacionesAll();
+  getCotizaciones(@GetUser() user: ValidatedUser) {
+    return this.cotizacionService.getCotizacionesAll(user);
   }
 
   @Post('vendedor-create')
@@ -251,9 +251,21 @@ export class CotizacionController {
     );
   }
 
+  @Patch(':id/assign-vendedor')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Asignar vendedor a cotización (Admin)' })
+  @ApiParam({ name: 'id', description: 'ID de la cotización' })
+  @ApiBody({ schema: { type: 'object', properties: { vendedorId: { type: 'string' } } } })
+  async assignVendedor(
+    @Param('id') id: string,
+    @Body('vendedorId') vendedorId: string,
+  ) {
+    return await this.cotizacionService.assignVendedor(id, vendedorId);
+  }
+
   @ApiOperation({
     summary: 'Asignar vendedor a cotización (Admin)',
-    description: 'Permite a un administrador asignar un vendedor específico.'
+    description: 'Permite a un administrador asignar un vendedor específico a una cotización pendiente, cambiando el estado a En Revision.'
   })
   @ApiParam({ name: 'idPricing', description: 'ID de la cotización' })
   @ApiParam({ name: 'idSeller', description: 'ID del vendedor a asignar' })
@@ -275,7 +287,7 @@ export class CotizacionController {
 
   @ApiOperation({
     summary: 'Obtener cotización por ID (Cliente/Admin/Vendedor)',
-    description: 'Retorna los detalles completos de una cotización específica.'
+    description: 'Retorna los detalles completos de una cotización específica. Si es vendedor asignado o admin, incluye el estado de los documentos del cliente.'
   })
   @ApiParam({ name: 'id', description: 'ID de la cotización' })
   @ApiResponse({

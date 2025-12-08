@@ -7,6 +7,7 @@ import { Cotizacion, CotizacionSchema } from './schemas/cotizacion.schema';
 import { Product, ProductSchema } from '../product/schemas/product.schema';
 import { UserModule } from '../user/user.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModulePersonal } from '../email-module/email-module.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     UserModule,
     NotificationsModule,
     CompraModule,
+    EmailModulePersonal,
   ],
   controllers: [CotizacionController],
   providers: [CotizacionService],

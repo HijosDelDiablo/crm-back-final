@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, UseGuards, Get, Param, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, Get, Param, ForbiddenException, Query } from '@nestjs/common';
 import { PagoService } from './pago.service';
 import { CompraService } from '../compra/compra.service';
 import { ValidatedUser } from '../user/schemas/user.schema';
@@ -99,7 +99,7 @@ export class PagoController {
     @ApiResponse({ status: 400, description: 'Datos inválidos o compra no válida' })
     @ApiResponse({ status: 403, description: 'No autorizado para registrar pagos' })
     @ApiResponse({ status: 404, description: 'Compra no encontrada' })
-    @Roles(Rol.VENDEDOR, Rol.ADMIN)
+    @Roles(Rol.VENDEDOR, Rol.ADMIN, Rol.CLIENTE)
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Post()
     async registrarPago(
@@ -260,10 +260,18 @@ export class PagoController {
     @Roles(Rol.CLIENTE)
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Get('mis-pagos')
-    async getMisPagos(@Req() req: any) {
+    async getMisPagos(
+        @Req() req: any,
+        @Query('compraId') compraId?: string,
+        @Query('fecha') fecha?: string,
+    ) {
         const usuarioActual: ValidatedUser = req.user;
 
-        const pagos = await this.pagoService.getPagosByClienteId(usuarioActual._id);
+        const filters: any = {};
+        if (compraId) filters.compraId = compraId;
+        if (fecha) filters.fecha = new Date(fecha);
+
+        const pagos = await this.pagoService.getPagosByClienteId(usuarioActual._id, filters);
 
         return {
             total: pagos.length,

@@ -37,11 +37,6 @@ export class CreateProductDto {
   @Min(0)
   precioBase: number;
 
-  @ApiProperty({ example: 50000, description: 'Kilometraje del vehículo', minimum: 0 })
-  @IsNumber()
-  @Min(0)
-  kilometraje: number;
-
   @ApiProperty({ example: 'Auto en excelente estado', description: 'Descripción del vehículo' })
   @IsString()
   @IsNotEmpty()
