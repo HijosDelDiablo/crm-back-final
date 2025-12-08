@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, UseGuards, Get, Param, ForbiddenException, Query } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, Get, Param, ForbiddenException, Query, Inject, forwardRef } from '@nestjs/common';
 import { PagoService } from './pago.service';
 import { CompraService } from '../compra/compra.service';
 import { ValidatedUser } from '../user/schemas/user.schema';
@@ -34,6 +34,7 @@ export class RegistrarPagoDto {
 export class PagoController {
     constructor(
         private readonly pagoService: PagoService,
+        @Inject(forwardRef(() => CompraService))
         private readonly compraService: CompraService,
     ) { }
 
