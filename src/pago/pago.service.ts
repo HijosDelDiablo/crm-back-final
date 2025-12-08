@@ -123,7 +123,8 @@ ${pago.notas ? `- Notas: ${pago.notas}` : ''}
 
 Vehículo: ${coche.marca || 'N/A'} ${coche.modelo || ''} ${coche.ano || ''}
 
-Saldo Pendiente Actual: $${(compra as any).saldoPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+Saldo Total Restante por Pagar: $${(compra as any).saldoPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+(Este monto incluye capital e intereses pendientes)
 
 Gracias por tu pago.
 
