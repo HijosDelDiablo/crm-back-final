@@ -72,6 +72,7 @@ export class UploadService {
     // Also include any local files not present in metadata
     const dir = path.resolve(process.cwd(), 'uploads', 'pdfs');
     try {
+        
       if (fs.existsSync(dir)) {
         const files = fs.readdirSync(dir).filter((f) => fs.statSync(path.join(dir, f)).isFile());
         for (const f of files) {
