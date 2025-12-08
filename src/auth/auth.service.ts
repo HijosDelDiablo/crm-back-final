@@ -366,8 +366,7 @@ export class AuthService {
       const deepLink = `smartassistant://reset-password?token=${resetToken}`;
 
       const backendUrl = this.configService.get<string>(
-        'BACKEND_URL',
-        'https://crm-back-final-production.up.railway.app',
+        'BACKEND_URL'
       );
 
       const webFallbackLink = `${backendUrl}/auth/reset-password-page?token=${resetToken}`;
