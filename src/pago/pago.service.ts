@@ -107,37 +107,67 @@ export class PagoService {
             const cotizacion = compra.cotizacion as any; // Assuming populated
             const coche = cotizacion?.coche || {};
 
-            const subject = 'Pago Registrado - SmartAssistant CRM';
-            const body = `
-                <html>
-                    <body>
-                        <h2>Pago Registrado Exitosamente</h2>
-                        <p>Hola ${cliente.nombre},</p>
-                        <p>Se ha registrado un pago en tu compra.</p>
-                        <p><strong>Detalles del Pago:</strong></p>
-                        <ul>
-                            <li><strong>Monto:</strong> $${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
-                            <li><strong>Método de Pago:</strong> ${pago.metodoPago}</li>
-                            <li><strong>Fecha:</strong> ${pago.fecha.toLocaleDateString('es-MX')}</li>
-                            ${pago.notas ? `<li><strong>Notas:</strong> ${pago.notas}</li>` : ''}
-                        </ul>
-                        <p><strong>Vehículo:</strong> ${coche.marca || 'N/A'} ${coche.modelo || ''} ${coche.ano || ''}</p>
-                        <p><strong>Saldo Pendiente Actual:</strong> $${(compra as any).saldoPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        <p>Gracias por tu pago.</p>
-                        <p>SmartAssistant CRM</p>
-                    </body>
-                </html>
+            const text = `
+Pago Registrado Exitosamente
+
+Hola ${cliente.nombre},
+
+Se ha registrado un pago en tu compra.
+
+Detalles del Pago:
+- Monto: $${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+- Método de Pago: ${pago.metodoPago}
+- Fecha: ${pago.fecha.toLocaleDateString('es-MX')}
+${pago.notas ? `- Notas: ${pago.notas}` : ''}
+
+Vehículo: ${coche.marca || 'N/A'} ${coche.modelo || ''} ${coche.ano || ''}
+
+Saldo Pendiente Actual: $${(compra as any).saldoPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+Gracias por tu pago.
+
+SmartAssistant CRM
             `;
 
             await this.emailService.sendSimpleEmail(
                 cliente.email,
                 subject,
-                undefined, // text
-                body // html
+                text
             );
         } catch (error) {
             console.error('Error enviando email de pago:', error);
             // No throw error to avoid breaking payment registration
+        }
+    }
+
+    private async enviarEmailVentaCompletada(compra: CompraDocument): Promise<void> {
+        try {
+            const cliente = compra.cliente as any;
+            const cotizacion = compra.cotizacion as any;
+            const coche = cotizacion?.coche || {};
+
+            const subject = '¡Felicidades! Tu vehículo es tuyo - SmartAssistant CRM';
+            const text = `
+¡Felicidades ${cliente.nombre}!
+
+Has completado el pago de tu vehículo.
+
+Vehículo: ${coche.marca || 'N/A'} ${coche.modelo || ''} ${coche.ano || ''}
+
+Ya puedes pasar a recoger tu vehículo y la documentación correspondiente.
+
+¡Gracias por tu compra!
+
+SmartAssistant CRM
+            `;
+
+            await this.emailService.sendSimpleEmail(
+                cliente.email,
+                subject,
+                text
+            );
+        } catch (error) {
+            console.error('Error enviando email de venta completada:', error);
         }
     }
 
@@ -154,6 +184,8 @@ export class PagoService {
             if (compra.cotizacion && (compra.cotizacion as any).coche) {
                 await this.productService.decrementStock((compra.cotizacion as any).coche.toString(), 1);
             }
+            // Enviar email de venta completada
+            await this.enviarEmailVentaCompletada(compra);
         }
     }
 

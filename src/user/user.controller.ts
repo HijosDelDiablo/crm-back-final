@@ -145,6 +145,15 @@ export class UserController {
   getDocumentStatus(@GetUser() user: ValidatedUser) {
     return this.userService.getDocumentStatus(user._id.toString());
   }
+
+  @Get('client/:id')
+  @Roles(Rol.ADMIN, Rol.VENDEDOR)
+  @ApiOperation({ summary: 'Get client details including documents (Admin/Vendedor)' })
+  @ApiParam({ name: 'id', description: 'Client ID' })
+  @ApiResponse({ status: 200, description: 'Return client details' })
+  async getClientDetails(@Param('id') id: string) {
+    return this.userService.findById(id);
+  }
   
   @Patch('profile')
   @ApiOperation({ summary: 'Update own profile' })

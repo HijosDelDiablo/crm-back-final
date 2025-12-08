@@ -251,6 +251,18 @@ export class CotizacionController {
     );
   }
 
+  @Patch(':id/assign-vendedor')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Asignar vendedor a cotización (Admin)' })
+  @ApiParam({ name: 'id', description: 'ID de la cotización' })
+  @ApiBody({ schema: { type: 'object', properties: { vendedorId: { type: 'string' } } } })
+  async assignVendedor(
+    @Param('id') id: string,
+    @Body('vendedorId') vendedorId: string,
+  ) {
+    return await this.cotizacionService.assignVendedor(id, vendedorId);
+  }
+
   @ApiOperation({
     summary: 'Asignar vendedor a cotización (Admin)',
     description: 'Permite a un administrador asignar un vendedor específico a una cotización pendiente, cambiando el estado a En Revision.'
