@@ -516,12 +516,17 @@ export class CotizacionService {
         </html>
       `;
 
-      await this.emailService.sendSimpleEmail(
-        cliente.email,
-        subject,
-        undefined, // text version not needed
-        htmlBody
-      );
+      // Si está aprobado, generar y adjuntar PDF de pagos
+      if (aprobado) {
+        await this.enviarPDFPagosAprobacion(cliente, coche, cotizacion);
+      } else {
+        await this.emailService.sendSimpleEmail(
+          cliente.email,
+          subject,
+          undefined, // text version not needed
+          htmlBody
+        );
+      }
 
       console.log(`Email de ${cotizacion.status} enviado exitosamente a ${cliente.email}`);
     } catch (error) {
@@ -642,5 +647,142 @@ export class CotizacionService {
 
     table += '</table>';
     return table;
+  }
+
+  private async enviarPDFPagosAprobacion(
+    cliente: UserDocument,
+    coche: ProductDocument,
+    cotizacion: CotizacionDocument
+  ): Promise<void> {
+    // Calcular monto financiado
+    const montoFinanciado = cotizacion.precioCoche - cotizacion.enganche;
+    const tasaMensual = cotizacion.tasaInteres / 12;
+    const amortizacionTable = this.generarTablaAmortizacion(
+      montoFinanciado,
+      tasaMensual,
+      cotizacion.plazoMeses,
+      cotizacion.pagoMensual
+    );
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #10b981; text-align: center; }
+            h2 { color: #333; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+            .info-section { background: #f9fafb; padding: 15px; margin: 20px 0; border-radius: 8px; }
+            .info-item { margin: 8px 0; }
+            .highlight { background: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background-color: #10b981; color: white; }
+            tr:nth-child(even) { background-color: #f9fafb; }
+            .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <h1>🎉 ¡Felicitaciones! Tu Financiamiento ha sido Aprobado</h1>
+
+          <div class="info-section">
+            <h2>Información del Cliente</h2>
+            <div class="info-item"><strong>Nombre:</strong> ${cliente.nombre}</div>
+            <div class="info-item"><strong>Email:</strong> ${cliente.email}</div>
+            ${cliente.telefono ? `<div class="info-item"><strong>Teléfono:</strong> ${cliente.telefono}</div>` : ''}
+          </div>
+
+          <div class="info-section">
+            <h2>Detalles del Vehículo</h2>
+            <div class="info-item"><strong>Vehículo:</strong> ${coche.marca} ${coche.modelo} ${coche.ano}</div>
+            <div class="info-item"><strong>Precio Total:</strong> $${cotizacion.precioCoche.toLocaleString()}</div>
+            <div class="info-item"><strong>Enganche:</strong> $${cotizacion.enganche.toLocaleString()}</div>
+          </div>
+
+          <div class="highlight">
+            <h2>📋 Resumen de tu Financiamiento</h2>
+            <div class="info-item"><strong>Monto Financiado:</strong> $${montoFinanciado.toLocaleString()}</div>
+            <div class="info-item"><strong>Plazo:</strong> ${cotizacion.plazoMeses} meses</div>
+            <div class="info-item"><strong>Tasa de Interés Anual:</strong> ${(cotizacion.tasaInteres * 100).toFixed(2)}%</div>
+            <div class="info-item"><strong>Pago Mensual:</strong> $${cotizacion.pagoMensual.toFixed(2)}</div>
+            <div class="info-item"><strong>Total a Pagar:</strong> $${cotizacion.totalPagado.toFixed(2)}</div>
+          </div>
+
+          <h2>📅 Calendario de Pagos</h2>
+          <p>A continuación encontrarás el detalle completo de cada uno de tus pagos mensuales:</p>
+          ${amortizacionTable}
+
+          <div class="footer">
+            <p><strong>Importante:</strong> Los pagos deben realizarse puntualmente el día 1 de cada mes.</p>
+            <p>Este documento es oficial y confirma la aprobación de tu financiamiento.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM - Todos los derechos reservados.</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const options = { format: 'A4', orientation: 'portrait' };
+    const file = { content: html };
+
+    return new Promise((resolve, reject) => {
+      pdf(file, options).toBuffer((err, buffer) => {
+        if (err) {
+          console.error('Error generando PDF de pagos:', err);
+          reject(err);
+          return;
+        }
+
+        // Enviar email con PDF adjunto
+        const subject = '¡Tu solicitud ha sido aprobada! - SmartAssistant CRM';
+        const htmlBody = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+              .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>SmartAssistant CRM</h1>
+                <p>Solicitud Aprobada</p>
+              </div>
+              <div class="content">
+                <h2>Hola ${cliente.nombre},</h2>
+                <p>Nos complace informarte que tu solicitud para el coche <b>${coche.marca} ${coche.modelo}</b> ha sido <b style="color: #10b981;">APROBADA</b>.</p>
+                <p>En el PDF adjunto encontrarás el calendario completo de pagos que deberás realizar.</p>
+                <p>Un asesor se pondrá en contacto contigo para continuar con el proceso de entrega del vehículo.</p>
+                <br/>
+                <p>Gracias por confiar en nosotros.</p>
+                <p><i>Atentamente,<br/>El equipo de Ventas</i></p>
+              </div>
+              <div class="footer">
+                <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+                <p>© ${new Date().getFullYear()} SmartAssistant CRM. Todos los derechos reservados.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `;
+
+        this.emailService.sendSimpleEmail(
+          cliente.email,
+          subject,
+          'Adjunto encontrarás el PDF con el calendario completo de pagos para tu financiamiento aprobado.',
+          htmlBody,
+          [{ filename: 'calendario-pagos-aprobado.pdf', content: buffer }]
+        ).then(() => {
+          console.log(`PDF de pagos enviado exitosamente a ${cliente.email}`);
+          resolve();
+        }).catch((error) => {
+          console.error('Error enviando email con PDF:', error);
+          reject(error);
+        });
+      });
+    });
   }
 }
