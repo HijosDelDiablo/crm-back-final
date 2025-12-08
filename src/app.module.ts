@@ -28,6 +28,7 @@ import { FavoritesUserModule } from './favorites-user/favorites-user.module';
 import { IamodelModule } from './iamodel/iamodel.module';
 import { SellerReviewModule } from './seller-review/seller-review.module';
 import { EmailModulePersonal } from './email-module/email-module.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -104,6 +105,7 @@ import { EmailModulePersonal } from './email-module/email-module.module';
     FavoritesUserModule,
     SellerReviewModule,
     EmailModulePersonal,
+    UploadModule,
     
   ],
   controllers: [AppController],
