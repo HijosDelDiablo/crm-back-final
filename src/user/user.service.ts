@@ -122,7 +122,43 @@ export class UserService {
 
   async uploadProfilePhoto(userId: string, file: Express.Multer.File): Promise<UserDocument> {
     const uploadResult = await this.uploadService.handleLocal(file);
-    const imageUrl = uploadResult.publicUrl || uploadResult.uploadThingResult?.data?.[0]?.url || `/uploads/profiles/${file.filename}`;
+
+    console.log('🔍 UploadResult completo:', JSON.stringify(uploadResult, null, 2));
+
+    // Priorizar URL de UploadThing sobre URL local
+    let imageUrl = uploadResult.publicUrl; // fallback a local
+
+    if (uploadResult.uploadThingResult?.success && uploadResult.uploadThingResult?.data) {
+      // La respuesta de UploadThing viene envuelta en { data: {...}, error: null }
+      const utResponse = uploadResult.uploadThingResult.data;
+      console.log('📤 UploadThing response structure:', JSON.stringify(utResponse, null, 2));
+
+      // La data real está en utResponse.data
+      if (utResponse.data) {
+        const utData = utResponse.data;
+        console.log('📤 UploadThing data structure:', JSON.stringify(utData, null, 2));
+
+        // Usar ufsUrl que es la URL recomendada por UploadThing
+        if (utData.ufsUrl) {
+          imageUrl = utData.ufsUrl;
+          console.log('✅ Usando utData.ufsUrl:', imageUrl);
+        } else if (utData.url) {
+          imageUrl = utData.url;
+          console.log('✅ Usando utData.url:', imageUrl);
+        } else if (utData.appUrl) {
+          imageUrl = utData.appUrl;
+          console.log('✅ Usando utData.appUrl:', imageUrl);
+        } else {
+          console.log('❌ No se encontró URL válida en UploadThing data');
+        }
+      } else {
+        console.log('❌ No hay data en la respuesta de UploadThing');
+      }
+    } else {
+      console.log('⚠️ No hay datos de UploadThing o falló la subida');
+    }
+
+    console.log('🎯 Final imageUrl:', imageUrl);
 
     const updatedUser = await this.userModel
       .findByIdAndUpdate(
@@ -146,7 +182,43 @@ export class UserService {
 
   async uploadDocument(userId: string, documentType: 'ine' | 'domicilio' | 'ingresos', file: Express.Multer.File): Promise<UserDocument> {
     const uploadResult = await this.uploadService.handleLocal(file);
-    const fileUrl = uploadResult.publicUrl || uploadResult.uploadThingResult?.data?.[0]?.url || `/uploads/documents/${file.filename}`;
+
+    console.log(`🔍 UploadResult para ${documentType}:`, JSON.stringify(uploadResult, null, 2));
+
+    // Priorizar URL de UploadThing sobre URL local
+    let fileUrl = uploadResult.publicUrl; // fallback a local
+
+    if (uploadResult.uploadThingResult?.success && uploadResult.uploadThingResult?.data) {
+      // La respuesta de UploadThing viene envuelta en { data: {...}, error: null }
+      const utResponse = uploadResult.uploadThingResult.data;
+      console.log(`📤 UploadThing response structure para ${documentType}:`, JSON.stringify(utResponse, null, 2));
+
+      // La data real está en utResponse.data
+      if (utResponse.data) {
+        const utData = utResponse.data;
+        console.log(`📤 UploadThing data structure para ${documentType}:`, JSON.stringify(utData, null, 2));
+
+        // Usar ufsUrl que es la URL recomendada por UploadThing
+        if (utData.ufsUrl) {
+          fileUrl = utData.ufsUrl;
+          console.log(`✅ Usando utData.ufsUrl para ${documentType}:`, fileUrl);
+        } else if (utData.url) {
+          fileUrl = utData.url;
+          console.log(`✅ Usando utData.url para ${documentType}:`, fileUrl);
+        } else if (utData.appUrl) {
+          fileUrl = utData.appUrl;
+          console.log(`✅ Usando utData.appUrl para ${documentType}:`, fileUrl);
+        } else {
+          console.log(`❌ No se encontró URL válida en UploadThing data para ${documentType}`);
+        }
+      } else {
+        console.log(`❌ No hay data en la respuesta de UploadThing para ${documentType}`);
+      }
+    } else {
+      console.log(`⚠️ No hay datos de UploadThing o falló la subida para ${documentType}`);
+    }
+
+    console.log(`🎯 Final fileUrl para ${documentType}:`, fileUrl);
 
     const updatePath = `documents.${documentType}`;
     const updatedUser = await this.userModel

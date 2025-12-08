@@ -136,6 +136,7 @@ export class UploadService {
     // 4) Intentar subir a UploadThing con UTApi
     try {
       const uploadRes = await this.uploadToUploadThing(file);
+      console.log('🚀 UploadThing raw response:', JSON.stringify(uploadRes, null, 2));
       result.uploadThingResult = {
         success: true,
         data: uploadRes,
@@ -197,7 +198,9 @@ export class UploadService {
     const utFile = new File([buffer], file.originalname, { type: file.mimetype });
 
     // Subir archivo a UploadThing
+    console.log('📤 Subiendo a UploadThing:', { filename: file.originalname, mimetype: file.mimetype, size: file.size });
     const res = await this.utapi.uploadFiles(utFile);
+    console.log('📥 Respuesta de UploadThing:', JSON.stringify(res, null, 2));
 
     // `res` incluye info como key, url pública, etc.
     return res;
