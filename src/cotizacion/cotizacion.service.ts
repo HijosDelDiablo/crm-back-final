@@ -4,6 +4,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -11,10 +12,10 @@ import { Product, ProductDocument } from '../product/schemas/product.schema';
 import { User, UserDocument } from '../user/schemas/user.schema';
 import { ValidatedUser } from '../user/schemas/user.schema';
 import { UserService } from '../user/user.service';
-import { OneSignalService } from '../notifications/onesignal.service';
 import { Cotizacion, CotizacionDocument } from './schemas/cotizacion.schema';
 import { CompraService } from '../compra/compra.service';
 import { EmailModuleService } from '../email-module/email-module.service';
+import { Rol } from '../auth/enums/rol.enum';
 
 const pdf = require('pdf-node');
 
@@ -30,13 +31,13 @@ interface CotizacionWithClienteAndCoche extends Omit<CotizacionDocument, 'client
 @Injectable()
 export class CotizacionService {
   private readonly TASA_INTERES_ANUAL = 0.15;
+  private readonly logger = new Logger(CotizacionService.name);
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Cotizacion.name)
     private cotizacionModel: Model<CotizacionDocument>,
-    private readonly oneSignalService: OneSignalService,
     private readonly userService: UserService,
     private readonly compraService: CompraService,
     private readonly emailService: EmailModuleService,
@@ -48,13 +49,18 @@ export class CotizacionService {
     enganche: number,
     plazoMeses: number,
   ): Promise<CotizacionDocument> {
+    this.logger.log(`🚀 Iniciando generación de cotización para cliente ${cliente._id} - Coche ID: ${cocheId}`);
+
     const coche = await this.productModel.findById(cocheId);
     if (!coche) {
+      this.logger.error(`❌ Coche con ID ${cocheId} no encontrado`);
       throw new NotFoundException('El coche solicitado no existe.');
     }
+    this.logger.log(`✅ Coche encontrado: ${coche.marca} ${coche.modelo} - Precio: $${coche.precioBase}`);
 
     const precio = coche.precioBase;
     if (enganche >= precio) {
+      this.logger.warn(`⚠️ Enganche inválido: $${enganche} >= $${precio}`);
       throw new BadRequestException(
         'El enganche debe ser menor al precio del coche.',
       );
@@ -71,6 +77,15 @@ export class CotizacionService {
 
     const totalPagado = pagoMensual * plazoMeses + enganche;
 
+    this.logger.log(`📊 Cálculos realizados:
+      - Precio coche: $${precio}
+      - Enganche: $${enganche}
+      - Monto a financiar: $${montoAFinanciar}
+      - Plazo: ${plazoMeses} meses
+      - Tasa anual: ${(this.TASA_INTERES_ANUAL * 100).toFixed(2)}%
+      - Pago mensual: $${parseFloat(pagoMensual.toFixed(2))}
+      - Total a pagar: $${parseFloat(totalPagado.toFixed(2))}`);
+
     const nuevaCotizacion = new this.cotizacionModel({
       cliente: cliente._id,
       coche: coche._id,
@@ -85,17 +100,22 @@ export class CotizacionService {
     });
 
     const cotizacionGuardada = await nuevaCotizacion.save();
+    this.logger.log(`💾 Cotización guardada exitosamente - ID: ${cotizacionGuardada._id}`);
 
     const clienteDoc = await this.userService.findById(cliente._id.toString());
     if (clienteDoc) {
-      await this.enviarCorreoCotizacionOneSignal(
+      await this.enviarCorreoCotizacion(
         clienteDoc,
         coche,
         cotizacionGuardada,
       );
+      this.logger.log(`📧 Correo de cotización enviado a ${clienteDoc.email}`);
 
       // Generar y enviar PDF
       await this.enviarCotizacionPDF(clienteDoc, coche, cotizacionGuardada, montoAFinanciar, tasaInteresMensual, plazoMeses, pagoMensual);
+      this.logger.log(`📄 PDF de cotización generado y enviado`);
+    } else {
+      this.logger.warn(`⚠️ No se pudo encontrar el documento del cliente para envío de notificaciones`);
     }
 
     return cotizacionGuardada;
@@ -160,11 +180,14 @@ export class CotizacionService {
       plazoMeses: number
     },
   ): Promise<CotizacionDocument> {
+    this.logger.log(`👨‍💼 Vendedor generando cotización - Cliente ID: ${dto.clienteId}, Coche ID: ${dto.cocheId}`);
 
     const cliente = await this.userService.findById(dto.clienteId);
     if (!cliente) {
+      this.logger.error(`❌ Cliente con ID ${dto.clienteId} no encontrado`);
       throw new NotFoundException('El cliente seleccionado no existe.');
     }
+    this.logger.log(`✅ Cliente encontrado: ${cliente.nombre} (${cliente.email})`);
 
     const validatedUser: ValidatedUser = {
       _id: cliente._id.toString(),
@@ -182,14 +205,14 @@ export class CotizacionService {
   }
 
   async getCotizacionesPendientes(user: ValidatedUser): Promise<CotizacionDocument[]> {
-
+    this.logger.log(`📋 Obteniendo cotizaciones pendientes para vendedor ${user._id}`);
 
     const data: CotizacionDocument[] = await this.cotizacionModel
       .find({ status: 'Pendiente', vendedor: new Types.ObjectId(user._id) })
       .populate('cliente', 'nombre email telefono')
       .populate('coche', 'marca modelo ano precioBase')
       .exec();
-    console.log(data);
+    this.logger.log(`✅ Encontradas ${data.length} cotizaciones pendientes`);
     return data;
   }
 
@@ -228,7 +251,7 @@ export class CotizacionService {
   async getCotizacionById(id: string, user: ValidatedUser): Promise<any> {
     const cotizacion = await this.cotizacionModel
       .findById(id)
-      .populate('cliente', 'nombre email telefono')
+      .populate('cliente', 'nombre email telefono documents')
       .populate('coche', 'marca modelo ano precioBase imageUrl condicion transmision descripcion')
       .populate('vendedor', 'nombre email telefono')
       .exec();
@@ -238,11 +261,20 @@ export class CotizacionService {
     }
 
     // Verificar permisos: cliente solo sus propias cotizaciones, admin todas
-    if (user.rol === 'CLIENTE' && cotizacion.cliente._id.toString() !== user._id.toString()) {
+    if (user.rol === Rol.CLIENTE && cotizacion.cliente._id.toString() !== user._id.toString()) {
       throw new ForbiddenException('No tienes permiso para ver esta cotización');
     }
 
-    return cotizacion;
+    // Si es vendedor asignado o admin, incluir estado de documentos del cliente
+    let documentosCliente = null;
+    if (user.rol === Rol.ADMIN || (user.rol === Rol.VENDEDOR && cotizacion.vendedor?._id.toString() === user._id.toString())) {
+      documentosCliente = await this.userService.getDocumentStatus(cotizacion.cliente._id.toString());
+    }
+
+    return {
+      ...cotizacion.toObject(),
+      documentosCliente,
+    };
   }
 
   async updateNotasVendedor(
@@ -270,16 +302,22 @@ export class CotizacionService {
   }
 
   async setSellerToPricing(idPricing: string, idSeller: string) {
+    this.logger.log(`👤 Asignando vendedor ${idSeller} a cotización ${idPricing}`);
+
     const cotizacion = await this.cotizacionModel.findById(idPricing).exec();
 
     if (!cotizacion) {
+      this.logger.error(`❌ Cotización ${idPricing} no encontrada`);
       throw new InternalServerErrorException('Cotización no encontrada.');
     }
 
     cotizacion.vendedor = new Types.ObjectId(idSeller);
     cotizacion.status = 'En Revision';
 
-    return cotizacion.save();
+    const result = await cotizacion.save();
+    this.logger.log(`✅ Vendedor asignado y status cambiado a 'En Revision'`);
+
+    return result;
   }
 
   async updateCotizacionStatus(
@@ -287,6 +325,7 @@ export class CotizacionService {
     vendedor: ValidatedUser,
     status: 'Aprobada' | 'Rechazada',
   ): Promise<CotizacionDocument> {
+    this.logger.log(`🔄 Actualizando status de cotización ${id} a '${status}' por vendedor ${vendedor._id}`);
 
     const cotizacion = await this.cotizacionModel
       .findById(id)
@@ -295,27 +334,33 @@ export class CotizacionService {
       .exec() as unknown as CotizacionWithClienteAndCoche;
 
     if (!cotizacion) {
+      this.logger.error(`❌ Cotización ${id} no encontrada`);
       throw new NotFoundException('Cotización no encontrada.');
     }
+    this.logger.log(`✅ Cotización encontrada - Cliente: ${cotizacion.cliente.nombre}, Coche: ${cotizacion.coche.marca} ${cotizacion.coche.modelo}`);
 
     cotizacion.status = status;
     cotizacion.vendedor = new Types.ObjectId(vendedor._id.toString());
 
     const cotizacionActualizada = await cotizacion.save();
+    this.logger.log(`💾 Status actualizado exitosamente`);
 
     // Si la cotización fue aprobada, crear Compra si no existe
     if (status === 'Aprobada') {
+      this.logger.log(`🛒 Creando compra desde cotización aprobada`);
       await this.compraService.createFromCotizacion(cotizacionActualizada);
+      this.logger.log(`✅ Compra creada exitosamente`);
     }
 
     try {
-      await this.enviarCorreoResultadoCotizacionOneSignal(
+      await this.enviarCorreoResultadoCotizacion(
         cotizacion.cliente,
         cotizacion.coche,
         cotizacionActualizada,
       );
+      this.logger.log(`📧 Correo de resultado enviado a ${cotizacion.cliente.email}`);
     } catch (emailError) {
-      console.error('Error enviando email:', emailError);
+      this.logger.error(`❌ Error enviando email: ${emailError.message}`);
     }
 
     return cotizacionActualizada;
@@ -360,7 +405,7 @@ export class CotizacionService {
     return cotizacion.save();
   }
 
-  private async enviarCorreoCotizacionOneSignal(
+  private async enviarCorreoCotizacion(
     cliente: UserDocument,
     coche: ProductDocument,
     cotizacion: CotizacionDocument
@@ -408,14 +453,15 @@ export class CotizacionService {
       </html>
     `;
 
-    await this.oneSignalService.enviarEmailPersonalizado(
+    await this.emailService.sendSimpleEmail(
       cliente.email,
       subject,
+      undefined, // text version not needed
       htmlBody
     );
   }
 
-  private async enviarCorreoResultadoCotizacionOneSignal(
+  private async enviarCorreoResultadoCotizacion(
     cliente: UserDocument,
     coche: ProductDocument,
     cotizacion: CotizacionDocument
@@ -470,9 +516,10 @@ export class CotizacionService {
         </html>
       `;
 
-      await this.oneSignalService.enviarEmailPersonalizado(
+      await this.emailService.sendSimpleEmail(
         cliente.email,
         subject,
+        undefined, // text version not needed
         htmlBody
       );
 

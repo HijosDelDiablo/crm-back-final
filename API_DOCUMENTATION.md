@@ -256,6 +256,36 @@ Authorization: Bearer <access_token>
 }
 ```
 
+### **GET** `/user/documents/status`
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200):**
+```json
+{
+  "ine": {
+    "uploaded": true,
+    "status": "actual",
+    "uploadedAt": "2024-01-15T10:00:00.000Z",
+    "url": "https://uploadthing.com/..."
+  },
+  "ingresos": {
+    "uploaded": false,
+    "status": null,
+    "uploadedAt": null,
+    "url": null
+  },
+  "domicilio": {
+    "uploaded": true,
+    "status": "pasado",
+    "uploadedAt": "2024-01-15T10:00:00.000Z",
+    "url": "https://uploadthing.com/..."
+  }
+}
+```
+
 ### **PATCH** `/user/profile`
 **Headers:**
 ```
@@ -646,8 +676,10 @@ Authorization: Bearer <access_token> (Vendedor/Admin)
 ```
 Authorization: Bearer <access_token> (Admin)
 ```
-
++
 ### **GET** `/cotizaciones/{id}`
+**Descripción:** Obtiene los detalles completos de una cotización específica. Si el usuario es vendedor asignado o admin, incluye el estado detallado de los documentos del cliente.
+
 **Headers:**
 ```
 Authorization: Bearer <access_token>
@@ -660,21 +692,30 @@ Authorization: Bearer <access_token>
   "cliente": {
     "_id": "507f1f77bcf86cd799439014",
     "nombre": "Juan Pérez",
+    "email": "juan@email.com",
+    "telefono": "+52551234567",
     "documents": {
-      "ine": { "status": "actual" },
-      "domicilio": { "status": "actual" },
-      "ingresos": { "status": "actual" }
+      "ine": { "url": "https://...", "uploadedAt": "2024-01-10T08:00:00.000Z" },
+      "domicilio": { "url": "https://...", "uploadedAt": "2024-01-10T08:05:00.000Z" },
+      "ingresos": { "url": "https://...", "uploadedAt": "2024-01-10T08:10:00.000Z" }
     }
   },
   "coche": {
     "_id": "507f1f77bcf86cd799439011",
     "marca": "Toyota",
     "modelo": "Corolla",
-    "precioBase": 250000
+    "ano": 2020,
+    "precioBase": 250000,
+    "imageUrl": "https://...",
+    "condicion": "Usado",
+    "transmision": "Manual",
+    "descripcion": "Excelente estado"
   },
   "vendedor": {
     "_id": "507f1f77bcf86cd799439015",
-    "nombre": "María García"
+    "nombre": "María García",
+    "email": "maria@email.com",
+    "telefono": "+52551234568"
   },
   "enganche": 50000,
   "plazoMeses": 60,
@@ -683,11 +724,33 @@ Authorization: Bearer <access_token>
   "tasaInteres": 0.15,
   "status": "Aprobada",
   "notasVendedor": "Cliente aprobado, documentos verificados",
-  "createdAt": "2024-01-15T10:00:00.000Z"
+  "createdAt": "2024-01-15T10:00:00.000Z",
+  "documentosCliente": {
+    "ine": {
+      "uploaded": true,
+      "status": "actual",
+      "uploadedAt": "2024-01-10T08:00:00.000Z",
+      "url": "https://..."
+    },
+    "ingresos": {
+      "uploaded": true,
+      "status": "actual",
+      "uploadedAt": "2024-01-10T08:10:00.000Z",
+      "url": "https://..."
+    },
+    "domicilio": {
+      "uploaded": true,
+      "status": "actual",
+      "uploadedAt": "2024-01-10T08:05:00.000Z",
+      "url": "https://..."
+    }
+  }
 }
 ```
 
----
+**Notas:**
+- `documentosCliente` solo se incluye si el usuario autenticado es el vendedor asignado a la cotización o un administrador.
+- Los campos `status` en `documentosCliente` indican si el documento está "actual" (vigente), "expirado" o "pendiente".
 
 ## 📧 **Sistema de Correos**
 

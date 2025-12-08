@@ -452,6 +452,20 @@ export class UserService {
     return { message: `Vendedor con ID "${sellerId}" desactivado correctamente.` };
   }
 
+  async activateSeller(sellerId: string): Promise<{ message: string }> {
+    const updatedSeller = await this.userModel
+      .findByIdAndUpdate(
+        sellerId,
+        { activo: true },
+        { new: true }
+      )
+      .select('-password');
+    if (!updatedSeller) {
+      throw new NotFoundException(`Vendedor con ID "${sellerId}" no encontrado.`);
+    }
+    return { message: `Vendedor con ID "${sellerId}" activado correctamente.` };
+  }
+
   async registerAdmin(dto: { nombre: string; email: string; password: string; telefono?: string }): Promise<UserDocument> {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const newAdmin = new this.userModel({
@@ -467,17 +481,37 @@ export class UserService {
   async getAdmins(): Promise<UserDocument[]> {
     return this.userModel.find({ rol: Rol.ADMIN }).select('-password').exec();
   }
-  async activateSeller(sellerId: string): Promise<{ message: string }> {
-    const updatedSeller = await this.userModel
-      .findByIdAndUpdate(
-        sellerId,
-        { activo: true },
-        { new: true }
-      )
-      .select('-password');
-    if (!updatedSeller) {
-      throw new NotFoundException(`Vendedor con ID "${sellerId}" no encontrado.`);
+  async getDocumentStatus(userId: string): Promise<any> {
+    const user = await this.userModel
+      .findById(userId)
+      .select('documents');
+
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado.`);
     }
-    return { message: `Vendedor con ID "${sellerId}" activado correctamente.` };
+
+    const documentsWithStatus = this.calculateDocumentStatus(user.documents);
+
+    return {
+      ine: {
+        uploaded: !!(user.documents?.ine?.url),
+        status: documentsWithStatus.ine?.status || null,
+        uploadedAt: user.documents?.ine?.uploadedAt || null,
+        url: user.documents?.ine?.url || null
+      },
+      ingresos: {
+        uploaded: !!(user.documents?.ingresos?.url),
+        status: documentsWithStatus.ingresos?.status || null,
+        uploadedAt: user.documents?.ingresos?.uploadedAt || null,
+        url: user.documents?.ingresos?.url || null
+      },
+      domicilio: {
+        uploaded: !!(user.documents?.domicilio?.url),
+        status: documentsWithStatus.domicilio?.status || null,
+        uploadedAt: user.documents?.domicilio?.uploadedAt || null,
+        url: user.documents?.domicilio?.url || null
+      }
+    };
   }
 }
+  

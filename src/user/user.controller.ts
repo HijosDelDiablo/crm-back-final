@@ -138,6 +138,13 @@ export class UserController {
   getProfile(@GetUser() user: ValidatedUser) {
     return this.userService.getProfile(user._id.toString());
   }
+
+  @Get('documents/status')
+  @ApiOperation({ summary: 'Get document status for current user' })
+  @ApiResponse({ status: 200, description: 'Return document status' })
+  getDocumentStatus(@GetUser() user: ValidatedUser) {
+    return this.userService.getDocumentStatus(user._id.toString());
+  }
   
   @Patch('profile')
   @ApiOperation({ summary: 'Update own profile' })

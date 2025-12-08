@@ -275,7 +275,7 @@ export class CotizacionController {
 
   @ApiOperation({
     summary: 'Obtener cotización por ID (Cliente/Admin/Vendedor)',
-    description: 'Retorna los detalles completos de una cotización específica. Si es vendedor asignado, incluye documentos del cliente con estado de vigencia.'
+    description: 'Retorna los detalles completos de una cotización específica. Si es vendedor asignado o admin, incluye el estado de los documentos del cliente.'
   })
   @ApiParam({ name: 'id', description: 'ID de la cotización' })
   @ApiResponse({
