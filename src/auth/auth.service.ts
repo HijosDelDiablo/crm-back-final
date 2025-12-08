@@ -51,6 +51,24 @@ export class AuthService {
     const { password, ...user } = newUser.toObject();
     return user;
   }
+  async registerAdmin(dto: RegisterAuthDto) {
+    const userExists = await this.userService.findByEmail(dto.email);
+    if (userExists) {
+      throw new ConflictException('El correo electrónico ya está registrado.');
+    }
+
+    const hashedPassword = await hash(dto.password, 10);
+
+    const newUser = await this.userService.createAdmin({
+      nombre: dto.nombre,
+      email: dto.email,
+      password: hashedPassword,
+      telefono: dto.telefono,
+    });
+
+    const { password, ...user } = newUser.toObject();
+    return user;
+  }
 
   async registerVendedor(dto: RegisterAuthDto) {
     const userExists = await this.userService.findByEmail(dto.email);
@@ -284,6 +302,19 @@ export class AuthService {
     if (!passwordMatches) throw new UnauthorizedException('Credenciales inválidas.');
 
     const u = user.toObject();
+
+  if(u.rol === Rol.CLIENTE) {
+      return {
+        _id: String(u._id),
+        email: u.email,
+        nombre: u.nombre,
+        rol: u.rol,
+        activo: u.activo,
+        twoFactorEnabled: u.twoFactorEnabled,
+        
+      };
+
+    }
 
     return {
       _id: String(u._id),

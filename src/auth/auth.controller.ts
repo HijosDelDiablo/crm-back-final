@@ -52,6 +52,15 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+  @Post('register/admin')
+  @ApiOperation({ summary: 'Register a new admin' })
+  @ApiResponse({ status: 201, description: 'User successfully registered' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiBody({ type: RegisterAuthDto })
+  registerAdmin(@Body() dto: RegisterAuthDto) {
+    return this.authService.registerAdmin(dto);
+  }
+
 
   @Post('register/vendedor')
   registerVendedor(@Body() dto: RegisterAuthDto) {

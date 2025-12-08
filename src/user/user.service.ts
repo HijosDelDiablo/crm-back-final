@@ -33,6 +33,10 @@ export class UserService {
     const newUser = new this.userModel(userData);
     return newUser.save();
   }
+  async createAdmin(userData: Partial<User>): Promise<UserDocument> {
+    const newUser = new this.userModel({  ...userData, rol: Rol.ADMIN });
+    return newUser.save();
+  }
 
   async update(id: string, updates: Partial<User>): Promise<UserDocument | null> {
     return this.userModel.findByIdAndUpdate(id, updates, { new: true }).exec();

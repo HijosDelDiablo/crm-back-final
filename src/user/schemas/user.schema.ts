@@ -49,6 +49,13 @@ export class User extends Document {
   @Prop({ default: true })
   activo: boolean;
 
+  @Prop({ default: null })
+  uriIneFile?: string;
+  @Prop({ default: null })
+  uriComprobanteDomicilioFile?: string;
+  @Prop({ default: null })
+  uriComprobanteIngresoFile?: string;
+
    @Prop({ type: Types.ObjectId, ref: User.name })
     vendedorQueAtiende?: Types.ObjectId; // Solo aplicable si el rol es CLIENTE
 }
