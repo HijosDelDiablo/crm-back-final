@@ -107,6 +107,7 @@ export class PagoService {
             const cotizacion = compra.cotizacion as any; // Assuming populated
             const coche = cotizacion?.coche || {};
 
+            const subject = 'Pago Registrado - SmartAssistant CRM';
             const text = `
 Pago Registrado Exitosamente
 
