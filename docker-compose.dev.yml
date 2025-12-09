@@ -2,12 +2,14 @@ services:
   sba_backend:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: crm_back_dev
     ports:
       - "${PORT}:${PORT}"
     env_file:
       - .env
+    environment:
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
     command: npm run start:dev
     develop:
       watch:
