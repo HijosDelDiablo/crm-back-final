@@ -22,7 +22,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      'https://crm-autobots.netlify.app/',
+      'https://crm-autobots.netlify.app',
       'https://crm-smarassistant.netlify.app',
       `http://localhost:${port}`,
       `http://[::1]:${port}`,
