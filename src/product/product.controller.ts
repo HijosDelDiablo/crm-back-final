@@ -110,9 +110,11 @@ export class ProductController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     const uploadResult = await this.uploadService.handleLocal(file);
-    if (!uploadResult.publicUrl) {
+    if (!uploadResult.uploadThingResult.data.ufsUrl) {
       throw new BadRequestException('Error uploading file');
     }
+    console.log("Public URL: ", uploadResult.publicUrl);
+    
     let imageUrl = uploadResult.publicUrl; // fallback a local
     return this.productService.update(productId, { imageUrl });
   }
