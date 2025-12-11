@@ -31,13 +31,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Rol } from '../auth/enums/rol.enum';
+import { UploadService } from '../upload/upload.service';
 
 @ApiTags('Products')
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class ProductController {
-  constructor(private readonly productService: ProductService) { }
+  constructor(private readonly productService: ProductService,
+    private readonly uploadService: UploadService
+  ) { }
 
   @ApiOperation({
     summary: 'Subir imagen de producto (Admin)',
@@ -91,7 +94,7 @@ export class ProductController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: './uploads',
+        destination: './uploads/documents',
         filename: (req, file, callback) => {
           const uniqueSuffix =
             Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -106,7 +109,11 @@ export class ProductController {
     @Param('id') productId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const imageUrl = `/uploads/${file.filename}`;
+    const uploadResult = await this.uploadService.handleLocal(file);
+    if (!uploadResult.publicUrl) {
+      throw new BadRequestException('Error uploading file');
+    }
+    let imageUrl = uploadResult.publicUrl; // fallback a local
     return this.productService.update(productId, { imageUrl });
   }
 

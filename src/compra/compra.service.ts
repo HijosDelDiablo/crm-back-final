@@ -733,6 +733,7 @@ export class CompraService {
         totalPagado: compra.totalPagado,
         createdAt: compra.fechaAprobacion,
         historialPagos: pagos, // Agregar historial de pagos
+        documentoCancelacion: compra.documentoCancelacion || null,
       };
     }));
 
