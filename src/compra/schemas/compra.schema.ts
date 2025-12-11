@@ -79,6 +79,9 @@ export class Compra {
 
   @Prop({ type: Number, default: 0 })
   totalPagado?: number;
+
+  @Prop({ type: String })
+  documentoCancelacion?: string;
 }
 
 export const CompraSchema = SchemaFactory.createForClass(Compra);

@@ -738,4 +738,80 @@ export class CompraService {
 
     return transformedCompras;
   }
+
+  async cancelarCompra(compraId: string, user: ValidatedUser, documentoPath?: string): Promise<CompraDocument> {
+    const compra = await this.compraModel
+      .findById(compraId)
+      .populate('cliente')
+      .populate('cotizacion')
+      .exec();
+
+    if (!compra) {
+      throw new NotFoundException('Compra no encontrada');
+    }
+
+    if (compra.status === StatusCompra.CANCELADA) {
+      throw new BadRequestException('La compra ya está cancelada');
+    }
+
+    compra.status = StatusCompra.CANCELADA;
+    if (documentoPath) {
+      compra.documentoCancelacion = documentoPath;
+    }
+
+    const compraGuardada = await compra.save();
+
+    // Enviar email al cliente
+    const cliente = compra.cliente as any;
+    const cotizacion = compra.cotizacion as any;
+
+    const emailBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #ef4444; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }
+          .highlight { background: #fee2e2; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>SmartAssistant CRM</h1>
+            <p>Compra Cancelada</p>
+          </div>
+          <div class="content">
+            <h2>Hola ${cliente.nombre},</h2>
+            <p>Te informamos que tu proceso de compra ha sido cancelado.</p>
+            
+            <div class="highlight">
+              <p><b>Vehículo:</b> ${cotizacion.coche?.marca || 'N/A'} ${cotizacion.coche?.modelo || 'N/A'}</p>
+              <p><b>Folio de compra:</b> ${compra._id}</p>
+            </div>
+
+            <p>Por favor, <b>acude a la agencia lo antes posible</b> para discutir el reembolso de cualquier monto pagado y finalizar los trámites administrativos.</p>
+            
+            <p>Si tienes dudas, contacta a tu vendedor asignado.</p>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático.</p>
+            <p>© ${new Date().getFullYear()} SmartAssistant CRM</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.oneSignalService.enviarEmailPersonalizado(
+      cliente.email,
+      'Aviso de Cancelación de Compra - SmartAssistant CRM',
+      emailBody
+    );
+
+    return compraGuardada;
+  }
 }
