@@ -1,4 +1,7 @@
-import { Controller, Post, Body, Req, UseGuards, Get, Param, ForbiddenException, Query, Inject, forwardRef } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, Get, Param, ForbiddenException, Query, Inject, forwardRef, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { ApiConsumes } from '@nestjs/swagger';
 import { PagoService } from './pago.service';
 import { CompraService } from '../compra/compra.service';
 import { ValidatedUser } from '../user/schemas/user.schema';
@@ -24,7 +27,12 @@ export class RegistrarPagoDto {
 
     @IsOptional()
     @IsString()
+    @IsOptional()
+    @IsString()
     notas?: string;
+
+    @IsOptional()
+    comprobante?: unknown;
 }
 
 @ApiTags('Pagos')
@@ -64,7 +72,8 @@ export class PagoController {
                     compraId: "507f1f77bcf86cd799439015",
                     monto: 5000,
                     metodoPago: "Transferencia bancaria",
-                    notas: "Pago inicial de enganche"
+                    notas: "Pago inicial de enganche",
+                    comprobante: "comprobante.jpg"
                 }
             },
             'pago_mensual': {
@@ -73,7 +82,8 @@ export class PagoController {
                     compraId: "507f1f77bcf86cd799439015",
                     monto: 687.50,
                     metodoPago: "Débito automático",
-                    notas: "Pago mensual correspondiente a enero 2024"
+                    notas: "Pago mensual correspondiente a enero 2024",
+                    comprobante: "comprobante.jpg"
                 }
             }
         }
@@ -102,13 +112,32 @@ export class PagoController {
     @ApiResponse({ status: 404, description: 'Compra no encontrada' })
     @Roles(Rol.VENDEDOR, Rol.ADMIN, Rol.CLIENTE)
     @UseGuards(JwtAuthGuard, RolesGuard)
+    @ApiConsumes('multipart/form-data')
+    @UseInterceptors(FileInterceptor('comprobante', {
+        storage: diskStorage({
+            destination: './uploads/comprobantes',
+            filename: (req, file, cb) => {
+                cb(null, Date.now() + '-' + file.originalname);
+            }
+        })
+    }))
     @Post()
     async registrarPago(
         @Body() dto: RegistrarPagoDto,
         @Req() req: any,
+        @UploadedFile() file?: Express.Multer.File,
     ) {
         const usuarioActual: ValidatedUser = req.user;
-        const pago = await this.pagoService.registrarPago(dto, usuarioActual);
+        const pagoDto = {
+            ...dto,
+            comprobante: file ? file.path : undefined,
+        };
+        // Convertir monto a número si viene como string (multipart/form-data)
+        if (typeof pagoDto.monto === 'string') {
+            pagoDto.monto = parseFloat(pagoDto.monto);
+        }
+
+        const pago = await this.pagoService.registrarPago(pagoDto, usuarioActual);
         return {
             message: 'Pago registrado correctamente',
             pago,

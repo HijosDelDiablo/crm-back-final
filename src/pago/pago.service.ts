@@ -13,6 +13,7 @@ interface RegistrarPagoDto {
     monto: number;
     metodoPago?: string;
     notas?: string;
+    comprobante?: string;
 }
 
 @Injectable()
@@ -91,6 +92,7 @@ export class PagoService {
             metodoPago: dto.metodoPago || 'transferencia',
             status: 'REGISTRADO',
             notas: dto.notas,
+            comprobante: dto.comprobante,
             registradoPor: usuarioActual._id,
         });
 
@@ -204,16 +206,16 @@ SmartAssistant CRM
         if (!Types.ObjectId.isValid(compraId)) {
             throw new BadRequestException('El ID de la compra no es válido');
         }
-        
+
         console.log(`🔍 Buscando pagos para compraId: ${compraId}`);
-        
+
         const pagos = await this.pagoModel
             .find({ compra: new Types.ObjectId(compraId) })
             .populate('cliente', 'nombre email')
             .populate('registradoPor', 'nombre email')
             .sort({ fecha: 1 }) // Orden ascendente por fecha
             .exec();
-            
+
         console.log(`✅ Pagos encontrados: ${pagos.length}`);
         return pagos;
     }
