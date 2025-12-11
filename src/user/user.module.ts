@@ -8,6 +8,7 @@ import { UploadModule } from '../upload/upload.module';
 
 @Module({
   imports: [
+    UploadModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: SellerReview.name, schema: SellerReviewSchema },
