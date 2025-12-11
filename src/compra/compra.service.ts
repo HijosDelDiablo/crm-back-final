@@ -740,6 +740,7 @@ export class CompraService {
   }
 
   async cancelarCompra(compraId: string, user: ValidatedUser, documentoPath?: string): Promise<CompraDocument> {
+
     const compra = await this.compraModel
       .findById(compraId)
       .populate('cliente')
@@ -808,7 +809,7 @@ export class CompraService {
 
     await this.oneSignalService.enviarEmailPersonalizado(
       cliente.email,
-      'Aviso de Cancelación de Compra - SmartAssistant CRM',
+      'Aviso de Cancelación de Compra - Grandline Motors CRM',
       emailBody
     );
 
