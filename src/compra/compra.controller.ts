@@ -7,8 +7,12 @@ import {
   Patch,
   Param,
   Query,
-  Req
+  Req,
+  UseInterceptors,
+  UploadedFile
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { CompraService } from './compra.service';
 import { CreateCompraDto } from './dto/create-compra.dto';
@@ -601,5 +605,33 @@ export class CompraController {
       throw new ForbiddenException('No tienes permiso para ver las compras de este vendedor');
     }
     return this.compraService.findByVendedorId(vendedorId);
+  }
+
+  @ApiOperation({
+    summary: 'Cancelar compra (Admin/Vendedor)',
+    description: `
+    Cancela una compra y envía notificación al cliente.
+    Permite subir un documento de cancelación opcional.
+    `
+  })
+  @ApiParam({ name: 'id', description: 'ID de la compra a cancelar' })
+  @ApiResponse({ status: 200, description: 'Compra cancelada exitosamente' })
+  @Patch(':id/cancelar')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN, Rol.VENDEDOR)
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/documents',
+      filename: (req, file, cb) => {
+        cb(null, `cancelacion-${Date.now()}-${file.originalname}`);
+      }
+    })
+  }))
+  async cancelarCompra(
+    @Param('id') compraId: string,
+    @GetUser() user: ValidatedUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.compraService.cancelarCompra(compraId, user, file?.path);
   }
 }

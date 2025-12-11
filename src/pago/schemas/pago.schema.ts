@@ -24,6 +24,9 @@ export class Pago extends Document {
     @Prop({ type: String })
     notas?: string;
 
+    @Prop({ type: String })
+    comprobante?: string;
+
     @Prop({ type: Types.ObjectId, ref: 'User' })
     registradoPor?: Types.ObjectId;
 }

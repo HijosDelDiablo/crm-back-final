@@ -31,7 +31,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly oneSignalService: OneSignalService,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-  ) {}
+  ) { }
 
   async register(dto: RegisterAuthDto) {
     const userExists = await this.userService.findByEmail(dto.email);
@@ -120,7 +120,7 @@ export class AuthService {
       deepLink: `smartassistant://login-success?token=${tokenData.accessToken}`,
     };
   }
-  
+
   async loginConGoogleWeb(profile: any) {
     const user = await this.validateGoogleUser(profile);
     if (!user) {
@@ -169,7 +169,7 @@ export class AuthService {
     await usuario.save();
 
     const tokenData = await this._generarTokenAcceso(
-      {...usuario.toObject(), _id: usuario._id.toString()} as ValidatedUser,
+      { ...usuario.toObject(), _id: usuario._id.toString() } as ValidatedUser,
     );
 
     return {
@@ -311,7 +311,7 @@ export class AuthService {
 
     user = await this.userService.findByEmail(profile.email);
     if (user) {
-      return this.userService.update(user.id, { googleId: profile.googleId }) as any;
+      return this.userService.update(String(user._id), { googleId: profile.googleId }) as any;
     }
 
     return this.userService.create({
