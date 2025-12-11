@@ -12,6 +12,8 @@ import { Rol } from '../auth/enums/rol.enum';
 import { IsString, IsNumber, IsOptional, IsPositive, IsNotEmpty } from 'class-validator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 
+import { Type } from 'class-transformer';
+
 export class RegistrarPagoDto {
     @IsString()
     @IsNotEmpty()
@@ -19,6 +21,7 @@ export class RegistrarPagoDto {
 
     @IsNumber()
     @IsPositive()
+    @Type(() => Number)
     monto: number;
 
     @IsOptional()
@@ -113,9 +116,9 @@ export class PagoController {
     @Roles(Rol.VENDEDOR, Rol.ADMIN, Rol.CLIENTE)
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiConsumes('multipart/form-data')
-    @UseInterceptors(FileInterceptor('comprobante', {
+    @UseInterceptors(FileInterceptor('file', {
         storage: diskStorage({
-            destination: './uploads/comprobantes',
+            destination: './uploads/documents',
             filename: (req, file, cb) => {
                 cb(null, Date.now() + '-' + file.originalname);
             }
@@ -127,11 +130,13 @@ export class PagoController {
         @Req() req: any,
         @UploadedFile() file?: Express.Multer.File,
     ) {
+        console.log("dto", dto);
         const usuarioActual: ValidatedUser = req.user;
         const pagoDto = {
             ...dto,
             comprobante: file ? file.path : undefined,
         };
+        console.log("pagoDto", pagoDto);
         // Convertir monto a número si viene como string (multipart/form-data)
         if (typeof pagoDto.monto === 'string') {
             pagoDto.monto = parseFloat(pagoDto.monto);
