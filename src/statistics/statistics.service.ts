@@ -65,7 +65,7 @@ export class StatisticsService {
   }
 
 
-  async addFavoritePoint(productId: Types.ObjectId) {
+  async addFavoritePoint(productId: string) {
     const now = dayjs();
     const year = now.year();
     const week = now.isoWeek();
